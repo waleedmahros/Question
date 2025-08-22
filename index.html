@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rony Games</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <header>
+        <h1>RONY GAMES</h1>
+    </header>
+
+    <section class="rounds-scoreboard">
+        <div class="rounds-counter" id="girls-rounds-counter">
+            <button class="add-round-btn round-control-btn" data-team="girls">+</button>
+            <span class="rounds-count" id="girls-rounds-count">0</span>
+            <span class="rounds-label">جولات</span>
+            <button class="subtract-round-btn round-control-btn" data-team="girls">-</button>
+        </div>
+        <div class="rounds-counter" id="boys-rounds-counter">
+            <button class="add-round-btn round-control-btn" data-team="boys">+</button>
+            <span class="rounds-count" id="boys-rounds-count">0</span>
+            <span class="rounds-label">جولات</span>
+            <button class="subtract-round-btn round-control-btn" data-team="boys">-</button>
+        </div>
+    </section>
+
+    <section class="scoreboard">
+        <div class="team-score-card" id="girls-card">
+            <h2> البنات</h2>
+            <div class="card-main-content">
+                <img src="https://i.postimg.cc/qqsVfGmk/11e9dad3b862ed346a3d63034d75e9d1-removebg-preview.png" alt="فريق البنات" class="team-avatar">
+                <div class="score" id="girls-score">0</div>
+            </div>
+            <div class="manual-controls">
+                <button>+</button>
+                <button>-</button>
+            </div>
+        </div>
+        <div class="team-score-card" id="boys-card">
+            <h2> الشباب</h2>
+            <div class="card-main-content">
+                <img src="https://i.postimg.cc/sfh39Y4H/b286c2e5292f78c97b293f0ca68deb37-removebg-preview.png" alt="فريق الشباب" class="team-avatar">
+                <div class="score" id="boys-score">0</div>
+            </div>
+            <div class="manual-controls">
+                <button>+</button>
+                <button>-</button>
+            </div>
+        </div>
+    </section>
+
+    <main class="supporters-area">
+        <div class="supporters-list" id="girls-supporters">
+            <h3>👑 درع الفريق 👑</h3>
+        </div>
+        <div class="supporters-list" id="boys-supporters">
+            <h3>👑 درع الفريق 👑</h3>
+        </div>
+    </main>
+    
+    <footer>
+        <button id="add-supporter-btn">إضافة داعم</button>
+        <button id="next-question-btn">السؤال التالي</button>
+        <button id="reset-game-btn">جولة جديدة</button>
+    </footer>
+
+    <div id="supporter-modal" class="hidden">
+        <div class="modal-content">
+            <button class="modal-close-btn">&times;</button>
+            <h2>إضافة درع جديد</h2>
+            <form id="supporter-form">
+                <input type="text" id="supporter-name" placeholder="اسم الداعم" required>
+                <input type="file" id="supporter-photo" accept="image/*" required>
+                <div class="team-selection">
+                    <p>إضافة الدرع لفريق:</p>
+                    <div>
+                        <input type="radio" id="team-girls" name="team" value="girls" checked>
+                        <label for="team-girls">البنات</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="team-boys" name="team" value="boys">
+                        <label for="team-boys">الشباب</label>
+                    </div>
+                </div>
+                <button type="submit">إضافة الآن</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="question-modal" class="hidden">
+        <div class="modal-content">
+            <button class="modal-close-btn">&times;</button>
+            <div id="modal-question-area"></div>
+            <div id="modal-answer-area" class="hidden"></div>
+            <div class="modal-controls">
+                <button id="toggle-answer-btn">إظهار الإجابة</button>
+                <div class="award-section">
+                    <span>مين جاوب؟</span>
+                    <div class="award-buttons">
+                        <button class="award-btn" data-team="girls">البنات</button>
+                        <button class="award-btn" data-team="boys">الشباب</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="celebration-overlay" class="hidden">
+        <div id="countdown-container" class="hidden">
+            <div id="countdown-timer">30</div>
+            <p>فرصة أخيرة لدعم الفريق!</p>
+            <button id="stop-countdown-btn">إيقاف ومتابعة اللعب</button>
+        </div>
+        <div id="winner-container" class="hidden">
+            <div class="confetti"></div><div class="confetti"></div><div class="confetti"></div>
+            <h2>الفريق الفائز</h2>
+            <h1 id="winner-name"></h1>
+            <button id="new-game-btn">بدء جولة جديدة</button>
+        </div>
+    </div>
+    
+    <script src="script.js" defer></script>
+</body>
+</html>
