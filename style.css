@@ -197,7 +197,16 @@ footer button { font-family: 'Cairo', sans-serif; font-size: 1.1em; padding: 15p
 #celebration-overlay { flex-direction: column; }
 #countdown-container { display: flex; flex-direction: column; align-items: center; }
 #countdown-timer { font-size: 10em; color: var(--gold-color); }
-#winner-container { display: flex; flex-direction: column; align-items: center; text-align: center; }
+/* استبدل الكود القديم بهذا */
+#winner-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center; /* هذه الخاصية هي مفتاح الحل */
+    text-align: center;
+    height: 100%; /* للتأكد من أنها تتوسط الشاشة بالكامل */
+}
+
 #winner-avatar { width: 150px; height: 150px; border-radius: 50%; border: 5px solid var(--gold-color); margin-bottom: 15px; object-fit: cover; }
 .winner-title { display: flex; align-items: center; justify-content: center; gap: 20px; }
 #winner-name { font-size: 5em; animation: winner-animation 2s ease-in-out infinite; margin: 0; }
