@@ -28,6 +28,12 @@
     100% { background-position: 200% center; }
 }
 
+/* --- New Confetti Animation --- */
+@keyframes confetti-fall {
+    0% { transform: translateY(-10vh) rotateZ(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotateZ(720deg); opacity: 0; }
+}
+
 body {
     background: linear-gradient(135deg, #0d0d1a 0%, #1a1f3a 50%, #0d0d1a 100%);
     background-attachment: fixed;
@@ -41,9 +47,9 @@ body {
 }
 
 header h1 {
-    font-size: 3em;
+    font-size: 2.8em;
     font-weight: 900;
-    margin: 0 0 20px 0;
+    margin: 0 0 10px 0; /* Reduced margin */
     background: linear-gradient(45deg, #ff478a, #ffd700, #00e1ff, #ff478a);
     background-size: 400% 400%;
     background-clip: text;
@@ -52,19 +58,18 @@ header h1 {
     animation: titleShine 4s ease-in-out infinite;
 }
 
-/* --- قسم عدادات الجولات (جديد ومستقل) --- */
 .rounds-scoreboard {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 80px; /* مسافة كبيرة بين العدادين */
+    gap: 80px;
     margin-bottom: 20px;
 }
 
 .rounds-counter {
     background-color: var(--card-bg);
     border: 2px solid;
-    width: 80px; /* تصغير العداد */
+    width: 80px;
     height: 80px;
     border-radius: 50%;
     display: flex;
@@ -111,7 +116,6 @@ header h1 {
     font-size: 1.8em;
     line-height: 26px;
 }
-/* ------------------------------------ */
 
 .scoreboard, main.supporters-area {
     display: flex;
@@ -135,81 +139,24 @@ header h1 {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 260px; /* إعادة البطاقة لحجمها الأصلي */
+    min-height: 260px;
     animation: glow 4s ease-in-out infinite;
 }
-
-#girls-card { 
-    border-color: var(--girls-color);
-    --glow-color: rgba(255, 71, 138, 0.3);
-    animation-delay: -1s;
-}
-
-#boys-card { 
-    border-color: var(--boys-color);
-    --glow-color: rgba(0, 225, 255, 0.3);
-    animation-delay: -3s;
-}
-
-.team-score-card:hover, .supporters-list:hover {
-    transform: translateY(-5px);
-}
-
-.team-score-card h2 {
-    font-size: 1.7em;
-    margin: 0;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
-}
-
+#girls-card { border-color: var(--girls-color); --glow-color: rgba(255, 71, 138, 0.3); animation-delay: -1s; }
+#boys-card { border-color: var(--boys-color); --glow-color: rgba(0, 225, 255, 0.3); animation-delay: -3s; }
+.team-score-card:hover, .supporters-list:hover { transform: translateY(-5px); }
+.team-score-card h2 { font-size: 1.7em; margin: 0; text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
 #girls-card h2 { color: var(--girls-color); }
 #boys-card h2 { color: var(--boys-color); }
-
-.card-main-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    flex-grow: 1;
-}
-
-.team-avatar {
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    object-fit: cover;
-    transition: transform 0.3s ease;
-}
-
-.score {
-    font-size: 4em;
-    font-weight: 900;
-    color: var(--gold-color);
-    animation: pulse 3s infinite ease-in-out;
-}
-
-.manual-controls {
-    display: flex;
-    gap: 15px;
-    justify-content: center;
-}
-
-.manual-controls button {
-    font-size: 1.5em;
-    font-weight: 900;
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    border: none;
-    color: white;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    line-height: 45px;
-}
-
+.card-main-content { display: flex; align-items: center; justify-content: center; gap: 5px; flex-grow: 1; }
+.team-avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; transition: transform 0.3s ease; }
+.score { font-size: 4em; font-weight: 900; color: var(--gold-color); animation: pulse 3s infinite ease-in-out; }
+.manual-controls { display: flex; gap: 15px; justify-content: center; }
+.manual-controls button { font-size: 1.5em; font-weight: 900; width: 45px; height: 45px; border-radius: 50%; border: none; color: white; cursor: pointer; transition: all 0.2s ease; line-height: 45px; }
 #girls-card .manual-controls button { background: var(--girls-color); }
 #boys-card .manual-controls button { background: var(--boys-color); }
 
-.supporters-list { border-top: 3px solid; min-height: 250px; }
+.supporters-list { border-top: 3px solid; min-height: 250px; overflow-y: auto; }
 #girls-supporters { border-color: var(--girls-color); }
 #boys-supporters { border-color: var(--boys-color); }
 .supporters-list h3 { margin: 0 0 15px 0; font-size: 1.4em; }
@@ -219,34 +166,37 @@ header h1 {
 .supporter-card img { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--gold-color); object-fit: cover; }
 .supporter-card p { margin: 0; font-weight: 700; }
 
-footer { margin-top: 20px; display: flex; justify-content: center; gap: 10px; }
-footer button { font-family: 'Cairo', sans-serif; font-size: 1.1em; padding: 15px 20px; border-radius: 50px; border: 2px solid; cursor: pointer; color: white; transition: all 0.3s ease; flex: 1; max-width: 250px; }
+footer { margin-top: 20px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+footer button { font-family: 'Cairo', sans-serif; font-size: 1.1em; padding: 15px 20px; border-radius: 50px; border: 2px solid; cursor: pointer; color: white; transition: all 0.3s ease; flex-grow: 1; max-width: 250px; }
 #next-question-btn { background: linear-gradient(135deg, var(--gold-color), #ffed4a); border-color: var(--gold-color); color: #10101b; }
 #add-supporter-btn { background: rgba(255,255,255,0.1); border-color: #fff; }
-#reset-game-btn { background-color: #c0392b; border-color: #c0392b; }
+#reset-round-btn { background-color: #c0392b; border-color: #c0392b; }
+#new-day-btn { background-color: #16a085; border-color: #16a085; }
 
-.hidden { 
-    opacity: 0 !important; 
-    pointer-events: none !important; 
-    transform: scale(0.95) !important; 
-}
+.hidden { opacity: 0 !important; pointer-events: none !important; transform: scale(0.95) !important; }
 
-#question-modal, #supporter-modal, #celebration-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(13, 13, 26, 0.85); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 100; opacity: 1; pointer-events: auto; transition: all 0.3s ease; }
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(13, 13, 26, 0.85); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 100; opacity: 1; pointer-events: auto; transition: all 0.3s ease; }
 .modal-content { background: linear-gradient(145deg, var(--card-bg), #0d0d1a); padding: 30px; border-radius: 20px; border: 2px solid var(--gold-color); width: 90%; max-width: 500px; max-height: 80vh; display: flex; flex-direction: column; position: relative; }
-.modal-close-btn { position: absolute; top: 15px; left: 20px; background: transparent; border: none; color: white; font-size: 2.5em; cursor: pointer; }
+.modal-close-btn { position: absolute; top: 15px; left: 20px; background: transparent; border: none; color: white; font-size: 2.5em; cursor: pointer; z-index: 105; }
 #modal-question-area { font-size: 1.8em; min-height: 150px; display: flex; flex-direction: column; justify-content: center; align-items: center; margin-bottom: 20px; flex-grow: 1; overflow-y: auto; }
 #modal-question-area img { max-width: 100%; max-height: 250px; border-radius: 10px; margin-top: 10px; }
 #modal-answer-area { font-size: 1.5em; color: var(--gold-color); background-color: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; margin-bottom: 20px; }
 #modal-answer-area.hidden { display: none; }
 #supporter-modal .modal-content h2 { color: var(--gold-color); }
+
+/* --- Celebration Overlay --- */
 #celebration-overlay { flex-direction: column; }
 #countdown-container { display: flex; flex-direction: column; align-items: center; }
 #countdown-timer { font-size: 10em; color: var(--gold-color); }
-#winner-container { display: flex; flex-direction: column; align-items: center; }
-#winner-name { font-size: 5em; animation: winner-animation 2s ease-in-out infinite; }
+#winner-container { display: flex; flex-direction: column; align-items: center; text-align: center; }
+#winner-avatar { width: 150px; height: 150px; border-radius: 50%; border: 5px solid var(--gold-color); margin-bottom: 15px; object-fit: cover; }
+#winner-name { font-size: 5em; animation: winner-animation 2s ease-in-out infinite; margin: 0; }
 @keyframes winner-animation { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
-.confetti { width: 15px; height: 15px; background-color: var(--girls-color); position: absolute; top: -20px; animation: confetti-fall 5s linear infinite; }
-.confetti:nth-child(2) { background-color: var(--boys-color); left: 20%; animation-delay: -0.5s; }
+#confetti-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
+.confetti { position: absolute; width: 10px; height: 20px; opacity: 0; animation: confetti-fall 5s linear infinite; }
+.confetti.triangle { width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 12px solid; background-color: transparent !important; }
+/* --- End Celebration Overlay --- */
+
 #supporter-form { display: flex; flex-direction: column; gap: 15px; }
 #supporter-form input[type="text"], #supporter-form input[type="file"] { font-family: 'Cairo', sans-serif; padding: 12px; border-radius: 8px; border: 1px solid #fff; background-color: rgba(255,255,255,0.1); color: white; }
 #supporter-form .team-selection { display: flex; justify-content: space-around; align-items: center; }
@@ -258,4 +208,4 @@ footer button { font-family: 'Cairo', sans-serif; font-size: 1.1em; padding: 15p
 .award-btn[data-team="girls"] { background-color: var(--girls-color); }
 .award-btn[data-team="boys"] { background-color: var(--boys-color); }
 #stop-countdown-btn { font-family: 'Cairo', sans-serif; padding: 15px 30px; border-radius: 10px; border: 2px solid #fff; background-color: transparent; color: white; cursor: pointer; margin-top: 20px; }
-#new-game-btn { font-family: 'Cairo', sans-serif; padding: 15px 30px; border-radius: 10px; border: none; background-color: var(--gold-color); color: var(--dark-bg); cursor: pointer; margin-top: 20px; }
+#new-round-btn-celebration { font-family: 'Cairo', sans-serif; padding: 15px 30px; border-radius: 10px; border: none; background-color: var(--gold-color); color: var(--dark-bg); cursor: pointer; margin-top: 20px; }

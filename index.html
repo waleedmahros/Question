@@ -38,8 +38,8 @@
                 <div class="score" id="girls-score">0</div>
             </div>
             <div class="manual-controls">
-                <button>+</button>
-                <button>-</button>
+                <button data-team="girls" data-action="add">+</button>
+                <button data-team="girls" data-action="subtract">-</button>
             </div>
         </div>
         <div class="team-score-card" id="boys-card">
@@ -49,8 +49,8 @@
                 <div class="score" id="boys-score">0</div>
             </div>
             <div class="manual-controls">
-                <button>+</button>
-                <button>-</button>
+                <button data-team="boys" data-action="add">+</button>
+                <button data-team="boys" data-action="subtract">-</button>
             </div>
         </div>
     </section>
@@ -67,10 +67,11 @@
     <footer>
         <button id="add-supporter-btn">إضافة داعم</button>
         <button id="next-question-btn">السؤال التالي</button>
-        <button id="reset-game-btn">جولة جديدة</button>
+        <button id="reset-round-btn">جولة جديدة</button>
+        <button id="new-day-btn">يوم جديد</button>
     </footer>
 
-    <div id="supporter-modal" class="hidden">
+    <div id="supporter-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <button class="modal-close-btn">&times;</button>
             <h2>إضافة درع جديد</h2>
@@ -93,7 +94,7 @@
         </div>
     </div>
 
-    <div id="question-modal" class="hidden">
+    <div id="question-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <button class="modal-close-btn">&times;</button>
             <div id="modal-question-area"></div>
@@ -111,17 +112,19 @@
         </div>
     </div>
 
-    <div id="celebration-overlay" class="hidden">
+    <div id="celebration-overlay" class="modal-overlay hidden">
+        <button class="modal-close-btn">&times;</button>
+        <div id="confetti-container"></div>
         <div id="countdown-container" class="hidden">
             <div id="countdown-timer">30</div>
             <p>فرصة أخيرة لدعم الفريق!</p>
             <button id="stop-countdown-btn">إيقاف ومتابعة اللعب</button>
         </div>
         <div id="winner-container" class="hidden">
-            <div class="confetti"></div><div class="confetti"></div><div class="confetti"></div>
+            <img id="winner-avatar" src="" alt="الفريق الفائز">
             <h2>الفريق الفائز</h2>
             <h1 id="winner-name"></h1>
-            <button id="new-game-btn">بدء جولة جديدة</button>
+            <button id="new-round-btn-celebration">بدء جولة جديدة</button>
         </div>
     </div>
     
