@@ -8,9 +8,9 @@ const sounds = {
     modal: new Audio('modal_sound.mp3'),
     point: new Audio('Point_award.mp3'),
     win: new Audio('game_win.mp3'),
-    countdown: new Audio('countdown.mp3')
+    countdown: new Audio('countdown.mp3'),
+    supporter: new Audio('supporter_added.mp3') // **NEW**
 };
-// To make the countdown sound loop
 sounds.countdown.loop = true; 
 
 function playSound(sound) {
@@ -62,7 +62,12 @@ const elements = {
     confettiContainer: document.getElementById('confetti-container'),
 
     allModals: document.querySelectorAll('.modal-overlay'),
-    allCloseButtons: document.querySelectorAll('.modal-close-btn')
+    allCloseButtons: document.querySelectorAll('.modal-close-btn'),
+
+    // **NEW** Supporter Announcement Elements
+    supporterAnnouncement: document.getElementById('supporter-announcement'),
+    announcementPhoto: document.getElementById('announcement-photo'),
+    announcementText: document.getElementById('announcement-text')
 };
 
 // --- GAME STATE ---
@@ -143,11 +148,10 @@ function checkWinner() {
     if (state.girlsScore >= WINNING_SCORE || state.boysScore >= WINNING_SCORE) {
         state.gameActive = false;
         saveState();
-        triggerWinSequence(); // **FIXED**: Call the countdown sequence
+        triggerWinSequence();
     }
 }
 
-// **FIXED**: Restored the countdown logic
 function triggerWinSequence() {
     showModal(elements.celebrationOverlay, false);
     elements.winnerContainer.classList.add('hidden');
@@ -169,7 +173,7 @@ function triggerWinSequence() {
 }
 
 function showWinner() {
-    stopSound('countdown'); // Stop countdown sound if it was running
+    stopSound('countdown');
     playSound('win');
     
     const winner = state.girlsScore >= WINNING_SCORE ? "البنات" : "الشباب";
@@ -189,7 +193,6 @@ function showWinner() {
     elements.countdownContainer.classList.add('hidden');
     elements.winnerContainer.classList.remove('hidden');
     
-    // Ensure the main overlay is visible if it wasn't already
     showModal(elements.celebrationOverlay, false); 
     launchConfetti();
 }
@@ -215,6 +218,22 @@ function addSupporterToDOM(name, photoDataUrl, team) {
     supporterCard.innerHTML = `<img src="${photoDataUrl}" alt="${name}"><p>👑 ${name}</p>`;
     const list = team === 'girls' ? elements.girlsSupportersList : elements.boysSupportersList;
     list.appendChild(supporterCard);
+}
+
+// --- **NEW** Supporter Announcement Logic ---
+function showSupporterAnnouncement(name, photoUrl, team) {
+    const teamName = team === 'girls' ? 'البنات' : 'الشباب';
+    elements.announcementPhoto.src = photoUrl;
+    elements.announcementText.innerHTML = `🛡️ ${name}<br>ينضم كدرع لفريق ${teamName}!`;
+    
+    playSound('supporter');
+    elements.supporterAnnouncement.classList.remove('hidden');
+    elements.supporterAnnouncement.classList.add('show');
+
+    setTimeout(() => {
+        elements.supporterAnnouncement.classList.remove('show');
+        elements.supporterAnnouncement.classList.add('hidden');
+    }, 6000); // Announcement lasts for 6 seconds
 }
 
 // --- EVENT LISTENERS ATTACHMENT ---
@@ -320,6 +339,9 @@ function attachEventListeners() {
                 addSupporterToDOM(supporterName, photoDataUrl, selectedTeam);
                 hideModal(elements.supporterModal);
                 elements.supporterForm.reset();
+
+                // **UPDATED**: Trigger the announcement
+                showSupporterAnnouncement(supporterName, photoDataUrl, selectedTeam);
             };
             reader.readAsDataURL(supporterPhotoInput.files[0]);
         }
@@ -337,8 +359,7 @@ function attachEventListeners() {
     });
     
     elements.allCloseButtons.forEach(btn => btn.addEventListener('click', () => {
-        // Special case for celebration overlay to stop sounds
-        if(btn.parentElement.id === 'celebration-overlay') {
+        if(btn.closest('.modal-overlay')?.id === 'celebration-overlay') {
             clearInterval(countdownInterval);
             stopSound('countdown');
         }
@@ -361,7 +382,6 @@ function attachEventListeners() {
     elements.newRoundBtnCelebration.addEventListener('click', startNewRound);
     elements.newDayBtn.addEventListener('click', startNewDay);
 
-    // **FIXED**: Restored stop countdown button logic
     elements.stopCountdownBtn.addEventListener('click', () => {
         playSound('click');
         clearInterval(countdownInterval);
@@ -376,7 +396,7 @@ function attachEventListeners() {
 async function initializeGame() {
     loadState();
     updateAllUI();
-    attachEventListeners(); // Attach main listeners immediately
+    attachEventListeners();
 
     try {
         const response = await fetch(GOOGLE_SHEET_URL);
@@ -388,7 +408,7 @@ async function initializeGame() {
         allQuestions = lines.map(line => {
             const values = line.split(',');
             return { id: values[0], type: values[1], question_text: values[2], image_url: values[3], answer: values[4], category: values[5] };
-        }).filter(q => q.id);
+        }).filter(q => q && q.id);
         
         availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
         console.log(`تم تحميل ${allQuestions.length} سؤالاً، ومتاح منها ${availableQuestions.length} سؤالاً.`);
