@@ -10,11 +10,20 @@ const sounds = {
     win: new Audio('game_win.mp3'),
     countdown: new Audio('countdown.mp3')
 };
+// To make the countdown sound loop
+sounds.countdown.loop = true; 
 
 function playSound(sound) {
     if (sounds[sound]) {
         sounds[sound].currentTime = 0;
         sounds[sound].play().catch(e => console.error(`Could not play sound: ${sound}`, e));
+    }
+}
+
+function stopSound(sound) {
+    if (sounds[sound]) {
+        sounds[sound].pause();
+        sounds[sound].currentTime = 0;
     }
 }
 
@@ -101,12 +110,12 @@ function updateAllUI() {
 }
 
 // --- MODAL HANDLING ---
-function showModal(modal) {
-    playSound('modal');
+function showModal(modal, playSoundEffect = true) {
+    if(playSoundEffect) playSound('modal');
     modal.classList.remove('hidden');
 }
-function hideModal(modal) {
-    playSound('modal');
+function hideModal(modal, playSoundEffect = true) {
+    if(playSoundEffect) playSound('modal');
     modal.classList.add('hidden');
 }
 
@@ -134,12 +143,35 @@ function checkWinner() {
     if (state.girlsScore >= WINNING_SCORE || state.boysScore >= WINNING_SCORE) {
         state.gameActive = false;
         saveState();
-        showWinner();
+        triggerWinSequence(); // **FIXED**: Call the countdown sequence
     }
 }
 
+// **FIXED**: Restored the countdown logic
+function triggerWinSequence() {
+    showModal(elements.celebrationOverlay, false);
+    elements.winnerContainer.classList.add('hidden');
+    elements.countdownContainer.classList.remove('hidden');
+    
+    playSound('countdown');
+    let countdown = 30;
+    elements.countdownTimer.textContent = countdown;
+    
+    countdownInterval = setInterval(() => {
+        countdown--;
+        elements.countdownTimer.textContent = countdown;
+        if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            stopSound('countdown');
+            showWinner();
+        }
+    }, 1000);
+}
+
 function showWinner() {
+    stopSound('countdown'); // Stop countdown sound if it was running
     playSound('win');
+    
     const winner = state.girlsScore >= WINNING_SCORE ? "البنات" : "الشباب";
     const winnerColor = winner === "البنات" ? 'var(--girls-color)' : 'var(--boys-color)';
     const winnerAvatarSrc = document.querySelector(winner === "البنات" ? '#girls-card .team-avatar' : '#boys-card .team-avatar').src;
@@ -154,9 +186,11 @@ function showWinner() {
     elements.winnerNameElement.style.color = winnerColor;
     elements.winnerAvatar.src = winnerAvatarSrc;
     
+    elements.countdownContainer.classList.add('hidden');
     elements.winnerContainer.classList.remove('hidden');
-    elements.countdownContainer.classList.add('hidden'); // Hide countdown just in case
-    showModal(elements.celebrationOverlay);
+    
+    // Ensure the main overlay is visible if it wasn't already
+    showModal(elements.celebrationOverlay, false); 
     launchConfetti();
 }
 
@@ -291,7 +325,6 @@ function attachEventListeners() {
         }
     });
 
-    // **FIXED**: Corrected the typo and placed the listener here.
     elements.toggleAnswerBtn.addEventListener('click', () => {
         playSound('click');
         elements.modalAnswerArea.classList.toggle('hidden');
@@ -303,12 +336,23 @@ function attachEventListeners() {
         showModal(elements.supporterModal);
     });
     
-    elements.allCloseButtons.forEach(btn => btn.addEventListener('click', () => elements.allModals.forEach(hideModal)));
+    elements.allCloseButtons.forEach(btn => btn.addEventListener('click', () => {
+        // Special case for celebration overlay to stop sounds
+        if(btn.parentElement.id === 'celebration-overlay') {
+            clearInterval(countdownInterval);
+            stopSound('countdown');
+        }
+        elements.allModals.forEach(modal => hideModal(modal, true));
+    }));
     
     elements.allModals.forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
-                hideModal(modal);
+                 if(modal.id === 'celebration-overlay') {
+                    clearInterval(countdownInterval);
+                    stopSound('countdown');
+                }
+                hideModal(modal, true);
             }
         });
     });
@@ -316,6 +360,16 @@ function attachEventListeners() {
     elements.resetRoundBtn.addEventListener('click', startNewRound);
     elements.newRoundBtnCelebration.addEventListener('click', startNewRound);
     elements.newDayBtn.addEventListener('click', startNewDay);
+
+    // **FIXED**: Restored stop countdown button logic
+    elements.stopCountdownBtn.addEventListener('click', () => {
+        playSound('click');
+        clearInterval(countdownInterval);
+        stopSound('countdown');
+        hideModal(elements.celebrationOverlay);
+        state.gameActive = true;
+        saveState();
+    });
 }
 
 // --- INITIALIZATION ---
@@ -329,7 +383,7 @@ async function initializeGame() {
         if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
         const csvData = await response.text();
         
-        const lines = csvData.trim().split(/\r\n|\n/).slice(1); // Handle both Windows and Unix line endings
+        const lines = csvData.trim().split(/\r\n|\n/).slice(1);
         
         allQuestions = lines.map(line => {
             const values = line.split(',');
@@ -346,4 +400,3 @@ async function initializeGame() {
 }
 
 initializeGame();
-
