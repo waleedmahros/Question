@@ -28,11 +28,17 @@
     100% { background-position: 200% center; }
 }
 
-/* --- New Confetti Animation --- */
 @keyframes confetti-fall {
     0% { transform: translateY(-10vh) rotateZ(0deg); opacity: 1; }
     100% { transform: translateY(110vh) rotateZ(720deg); opacity: 0; }
 }
+
+@keyframes trophy-glow-move {
+    0% { transform: translateY(0) scale(1); text-shadow: 0 0 15px var(--gold-color); }
+    50% { transform: translateY(-15px) scale(1.1); text-shadow: 0 0 35px var(--gold-color); }
+    100% { transform: translateY(0) scale(1); text-shadow: 0 0 15px var(--gold-color); }
+}
+
 
 body {
     background: linear-gradient(135deg, #0d0d1a 0%, #1a1f3a 50%, #0d0d1a 100%);
@@ -49,7 +55,7 @@ body {
 header h1 {
     font-size: 2.8em;
     font-weight: 900;
-    margin: 0 0 10px 0; /* Reduced margin */
+    margin: 0 0 5px 0; /* Reduced margin */
     background: linear-gradient(45deg, #ff478a, #ffd700, #00e1ff, #ff478a);
     background-size: 400% 400%;
     background-clip: text;
@@ -62,15 +68,15 @@ header h1 {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 80px;
-    margin-bottom: 20px;
+    gap: 60px;
+    margin-bottom: 15px; /* Reduced margin */
 }
 
 .rounds-counter {
     background-color: var(--card-bg);
-    border: 2px solid;
-    width: 80px;
-    height: 80px;
+    border: 3px solid;
+    width: 100px; /* Increased size */
+    height: 100px; /* Increased size */
     border-radius: 50%;
     display: flex;
     flex-direction: column;
@@ -82,12 +88,12 @@ header h1 {
 #girls-rounds-counter { border-color: var(--girls-color); }
 #boys-rounds-counter { border-color: var(--boys-color); }
 .rounds-count {
-    font-size: 2em;
+    font-size: 2.5em; /* Increased size */
     font-weight: 900;
     line-height: 1;
 }
 .rounds-label {
-    font-size: 0.7em;
+    font-size: 0.8em; /* Increased size */
     line-height: 1;
 }
 .round-control-btn {
@@ -96,25 +102,28 @@ header h1 {
     color: var(--dark-bg);
     border: none;
     border-radius: 50%;
-    width: 28px;
-    height: 28px;
-    font-size: 1.4em;
-    line-height: 28px;
+    width: 32px; /* Increased size */
+    height: 32px; /* Increased size */
+    font-size: 1.6em; /* Increased size */
+    line-height: 32px;
     cursor: pointer;
     box-shadow: 0 2px 5px rgba(0,0,0,0.4);
     z-index: 6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .add-round-btn {
     top: 50%;
-    right: -15px;
+    right: -18px; /* Adjusted position */
     transform: translateY(-50%);
 }
 .subtract-round-btn {
     top: 50%;
-    left: -15px;
+    left: -18px; /* Adjusted position */
     transform: translateY(-50%);
-    font-size: 1.8em;
-    line-height: 26px;
+    font-size: 2em; /* Increased size */
+    line-height: 30px;
 }
 
 .scoreboard, main.supporters-area {
@@ -190,11 +199,12 @@ footer button { font-family: 'Cairo', sans-serif; font-size: 1.1em; padding: 15p
 #countdown-timer { font-size: 10em; color: var(--gold-color); }
 #winner-container { display: flex; flex-direction: column; align-items: center; text-align: center; }
 #winner-avatar { width: 150px; height: 150px; border-radius: 50%; border: 5px solid var(--gold-color); margin-bottom: 15px; object-fit: cover; }
+.winner-title { display: flex; align-items: center; justify-content: center; gap: 20px; }
 #winner-name { font-size: 5em; animation: winner-animation 2s ease-in-out infinite; margin: 0; }
+#winner-trophy { font-size: 4em; display: inline-block; animation: trophy-glow-move 2.5s ease-in-out infinite; }
 @keyframes winner-animation { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
-#confetti-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
-.confetti { position: absolute; width: 10px; height: 20px; opacity: 0; animation: confetti-fall 5s linear infinite; }
-.confetti.triangle { width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 12px solid; background-color: transparent !important; }
+#confetti-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: -1; }
+.confetti { position: absolute; width: 10px; height: 20px; opacity: 0; animation: confetti-fall 5s linear; }
 /* --- End Celebration Overlay --- */
 
 #supporter-form { display: flex; flex-direction: column; gap: 15px; }
