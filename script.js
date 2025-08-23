@@ -292,7 +292,21 @@ function attachEventListeners() {
     });
 
     elements.toggleAnswerBtn.addEventListener('click', () => playSound('click'));
+    // --- EVENT LISTENERS ATTACHMENT ---
+function attachEventListeners() {
     
+    // ... (الكود الحالي للأزرار الأخرى) ...
+
+    elements.toggleAnswerBtn.addEventListener('click', () => {
+        playSound('click'); // <-- السطر المفقود مع تعديل بسيط
+        elements.modalAnswerArea.classList.toggle('hidden');
+        elements.toggleAnswerBtn.textContent = elements.modalAnswerArea.classList.contains('hidden') ? "إظهار الإجابة" : "إخفاء الإجابة";
+    });
+    
+    elements.addSupporterBtn.addEventListener('click', () => {
+    // ... (باقي الكود) ...
+}
+
     elements.addSupporterBtn.addEventListener('click', () => {
         playSound('click');
         showModal(elements.supporterModal);
