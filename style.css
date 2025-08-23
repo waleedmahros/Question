@@ -230,3 +230,59 @@ footer button { font-family: 'Cairo', sans-serif; font-size: 1.1em; padding: 15p
 #stop-countdown-btn { font-family: 'Cairo', sans-serif; padding: 15px 30px; border-radius: 10px; border: 2px solid #fff; background-color: transparent; color: white; cursor: pointer; margin-top: 20px; }
 #new-round-btn-celebration { font-family: 'Cairo', sans-serif; padding: 15px 30px; border-radius: 10px; border: none; background-color: var(--gold-color); color: var(--dark-bg); cursor: pointer; margin-top: 20px; }
 
+#new-round-btn-celebration { font-family: 'Cairo', sans-serif; padding: 15px 30px; border-radius: 10px; border: none; background-color: var(--gold-color); color: var(--dark-bg); cursor: pointer; margin-top: 20px; }
+
+
+/* --- **NEW** Supporter Announcement --- */
+@keyframes announcement-glow {
+    0%, 100% { box-shadow: 0 0 20px var(--gold-color), 0 0 30px var(--gold-color); }
+    50% { box-shadow: 0 0 35px var(--gold-color), 0 0 50px var(--gold-color); }
+}
+
+@keyframes slide-in-out {
+    0% { transform: translateY(100vh); opacity: 0; }
+    15% { transform: translateY(0); opacity: 1; }
+    85% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(-100vh); opacity: 0; }
+}
+
+#supporter-announcement {
+    position: fixed;
+    bottom: 5%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(145deg, var(--card-bg), #0d0d1a);
+    border: 3px solid var(--gold-color);
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    z-index: 200;
+    width: 90%;
+    max-width: 450px;
+    color: white;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+}
+
+#supporter-announcement.show {
+    animation: slide-in-out 6s ease-in-out forwards;
+}
+
+#announcement-photo {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid var(--gold-color);
+    animation: announcement-glow 2.5s infinite ease-in-out;
+}
+
+#announcement-text {
+    font-size: 1.8em;
+    margin: 0;
+    text-shadow: 0 2px 5px black;
+}
+
