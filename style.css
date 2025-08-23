@@ -181,9 +181,9 @@ footer button { font-family: 'Cairo', sans-serif; font-size: 1.1em; padding: 15p
 #add-supporter-btn { background: rgba(255,255,255,0.1); border-color: #fff; }
 #reset-round-btn { background-color: #c0392b; border-color: #c0392b; }
 #new-day-btn { background-color: #16a085; border-color: #16a085; }
-
-.hidden { opacity: 0 !important; pointer-events: none !important; transform: scale(0.95) !important; }
-
+.hidden {
+    display: none !important;
+}
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(13, 13, 26, 0.85); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 100; opacity: 1; pointer-events: auto; transition: all 0.3s ease; }
 .modal-content { background: linear-gradient(145deg, var(--card-bg), #0d0d1a); padding: 30px; border-radius: 20px; border: 2px solid var(--gold-color); width: 90%; max-width: 500px; max-height: 80vh; display: flex; flex-direction: column; position: relative; }
 .modal-close-btn { position: absolute; top: 15px; left: 20px; background: transparent; border: none; color: white; font-size: 2.5em; cursor: pointer; z-index: 105; }
@@ -197,16 +197,13 @@ footer button { font-family: 'Cairo', sans-serif; font-size: 1.1em; padding: 15p
 #celebration-overlay { flex-direction: column; }
 #countdown-container { display: flex; flex-direction: column; align-items: center; }
 #countdown-timer { font-size: 10em; color: var(--gold-color); }
-/* استبدل الكود القديم بهذا */
 #winner-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center; /* هذه الخاصية هي مفتاح الحل */
+    justify-content: center;
     text-align: center;
-    height: 100%; /* للتأكد من أنها تتوسط الشاشة بالكامل */
 }
-
 #winner-avatar { width: 150px; height: 150px; border-radius: 50%; border: 5px solid var(--gold-color); margin-bottom: 15px; object-fit: cover; }
 .winner-title { display: flex; align-items: center; justify-content: center; gap: 20px; }
 #winner-name { font-size: 5em; animation: winner-animation 2s ease-in-out infinite; margin: 0; }
