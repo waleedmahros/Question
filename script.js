@@ -2,6 +2,22 @@
 const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEfxl2DDK4ZY-pFgNMnNlzuXJKf9ysLh1u30CW0aukQVNJ3oEPXTMZ8S8g685fxGYmVv5lmve4ZLrN/pub?output=csv';
 const WINNING_SCORE = 10;
 
+// --- AUDIO SETUP ---
+const sounds = {
+    click: new Audio('sounds/Button_click.mp3'),
+    modal: new Audio('sounds/modal_sound.mp3'),
+    point: new Audio('sounds/Point_award.mp3'),
+    win: new Audio('sounds/game_win.mp3'),
+    countdown: new Audio('sounds/Countdown.mp3')
+};
+
+function playSound(sound) {
+    if (sounds[sound]) {
+        sounds[sound].currentTime = 0;
+        sounds[sound].play().catch(e => console.error(`Could not play sound: ${sound}`, e));
+    }
+}
+
 // --- DOM ELEMENTS ---
 const elements = {
     girlsScore: document.getElementById('girls-score'),
@@ -52,14 +68,12 @@ let state = {
     boysRoundsWon: 0,
     gameActive: true,
     usedQuestionIds: [],
-    supporters: { girls: [], boys: [] } // Supporters will be session-only
 };
 
 // --- STATE MANAGEMENT ---
 function saveState() {
     try {
-        const stateToSave = { ...state, supporters: undefined }; // Don't save supporters to localStorage
-        localStorage.setItem('ronyGamesSession', JSON.stringify(stateToSave));
+        localStorage.setItem('ronyGamesSession', JSON.stringify(state));
     } catch (e) {
         console.error("Failed to save state:", e);
     }
@@ -87,11 +101,18 @@ function updateAllUI() {
 }
 
 // --- MODAL HANDLING ---
-function showModal(modal) { modal.classList.remove('hidden'); }
-function hideModal(modal) { modal.classList.add('hidden'); }
+function showModal(modal) {
+    playSound('modal');
+    modal.classList.remove('hidden');
+}
+function hideModal(modal) {
+    playSound('modal');
+    modal.classList.add('hidden');
+}
 
 // --- GAME LOGIC ---
 function startNewRound() {
+    playSound('click');
     state.girlsScore = 0;
     state.boysScore = 0;
     state.gameActive = true;
@@ -101,6 +122,7 @@ function startNewRound() {
 }
 
 function startNewDay() {
+    playSound('click');
     if (confirm("هل أنت متأكد أنك تريد بدء يوم جديد؟ سيتم مسح جميع النقاط والجولات والأسئلة المستخدمة.")) {
         localStorage.removeItem('ronyGamesSession');
         location.reload();
@@ -111,17 +133,13 @@ function checkWinner() {
     if (!state.gameActive) return;
     if (state.girlsScore >= WINNING_SCORE || state.boysScore >= WINNING_SCORE) {
         state.gameActive = false;
-        triggerWinSequence();
         saveState();
+        showWinner();
     }
 }
 
-function triggerWinSequence() {
-    // This is a placeholder now, showWinner is called directly
-    showWinner();
-}
-
 function showWinner() {
+    playSound('win');
     const winner = state.girlsScore >= WINNING_SCORE ? "البنات" : "الشباب";
     const winnerColor = winner === "البنات" ? 'var(--girls-color)' : 'var(--boys-color)';
     const winnerAvatarSrc = document.querySelector(winner === "البنات" ? '#girls-card .team-avatar' : '#boys-card .team-avatar').src;
@@ -136,8 +154,8 @@ function showWinner() {
     elements.winnerNameElement.style.color = winnerColor;
     elements.winnerAvatar.src = winnerAvatarSrc;
     
-    elements.countdownContainer.classList.add('hidden');
     elements.winnerContainer.classList.remove('hidden');
+    elements.countdownContainer.classList.add('hidden'); // Hide countdown just in case
     showModal(elements.celebrationOverlay);
     launchConfetti();
 }
@@ -168,6 +186,7 @@ function addSupporterToDOM(name, photoDataUrl, team) {
 // --- EVENT LISTENERS ATTACHMENT ---
 function attachEventListeners() {
     elements.nextQuestionBtn.addEventListener('click', () => {
+        playSound('click');
         if (!state.gameActive) return;
         if (availableQuestions.length === 0) {
             alert("انتهت جميع الأسئلة المتاحة لهذا اليوم!");
@@ -202,6 +221,7 @@ function attachEventListeners() {
 
     elements.awardButtons.forEach(button => {
         button.addEventListener('click', (event) => {
+            playSound('point');
             if (!state.gameActive) return;
             const winningTeam = event.target.dataset.team;
             if (winningTeam === 'girls') state.girlsScore++;
@@ -216,6 +236,7 @@ function attachEventListeners() {
     
     elements.manualControls.forEach(button => {
         button.addEventListener('click', (e) => {
+            playSound('click');
             const team = e.target.dataset.team;
             const action = e.target.dataset.action;
             if (state.gameActive) {
@@ -226,6 +247,7 @@ function attachEventListeners() {
                     if (action === 'add') state.boysScore++;
                     else if (state.boysScore > 0) state.boysScore--;
                 }
+                if (action === 'add') playSound('point');
                 saveState();
                 updateScoresUI();
                 checkWinner();
@@ -235,6 +257,7 @@ function attachEventListeners() {
 
     elements.roundControls.forEach(button => {
         button.addEventListener('click', (e) => {
+            playSound('click');
             const team = e.target.dataset.team;
             const isAdd = e.target.classList.contains('add-round-btn');
             if(team === 'girls') {
@@ -251,6 +274,7 @@ function attachEventListeners() {
     
     elements.supporterForm.addEventListener('submit', (event) => {
         event.preventDefault();
+        playSound('click');
         const supporterName = document.getElementById('supporter-name').value;
         const supporterPhotoInput = document.getElementById('supporter-photo');
         const selectedTeam = document.querySelector('input[name="team"]:checked').value;
@@ -260,7 +284,6 @@ function attachEventListeners() {
             reader.onload = function(e) {
                 const photoDataUrl = e.target.result;
                 addSupporterToDOM(supporterName, photoDataUrl, selectedTeam);
-                // Not saving supporters to localStorage to avoid size limits
                 hideModal(elements.supporterModal);
                 elements.supporterForm.reset();
             };
@@ -268,12 +291,12 @@ function attachEventListeners() {
         }
     });
 
-    elements.toggleAnswerBtn.addEventListener('click', () => {
-        elements.modalAnswerArea.classList.toggle('hidden');
-        elements.toggleAnswerBtn.textContent = elements.modalAnswerArea.classList.contains('hidden') ? "إظهار الإجابة" : "إخفاء الإجابة";
-    });
+    elements.toggleAnswerBtn.addEventListener('click', () => playSound('click'));
     
-    elements.addSupporterBtn.addEventListener('click', () => showModal(elements.supporterModal));
+    elements.addSupporterBtn.addEventListener('click', () => {
+        playSound('click');
+        showModal(elements.supporterModal);
+    });
     
     elements.allCloseButtons.forEach(btn => btn.addEventListener('click', () => elements.allModals.forEach(hideModal)));
     
@@ -290,30 +313,27 @@ function attachEventListeners() {
     elements.newDayBtn.addEventListener('click', startNewDay);
 }
 
-
 // --- INITIALIZATION ---
 async function initializeGame() {
     loadState();
     updateAllUI();
+    attachEventListeners(); // Attach main listeners immediately
 
     try {
         const response = await fetch(GOOGLE_SHEET_URL);
         if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
         const csvData = await response.text();
         
-        const lines = csvData.trim().split('\r\n').slice(1); // Use \r\n for Google Sheets and skip header
+        const lines = csvData.trim().split(/\r\n|\n/).slice(1); // Handle both Windows and Unix line endings
         
         allQuestions = lines.map(line => {
             const values = line.split(',');
             return { id: values[0], type: values[1], question_text: values[2], image_url: values[3], answer: values[4], category: values[5] };
-        }).filter(q => q.id); // Filter out any empty lines
+        }).filter(q => q.id);
         
         availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
         console.log(`تم تحميل ${allQuestions.length} سؤالاً، ومتاح منها ${availableQuestions.length} سؤالاً.`);
         
-        // **CRITICAL FIX**: Attach event listeners only AFTER questions are loaded successfully.
-        attachEventListeners();
-
     } catch (error) {
         console.error('فشل في تحميل أو تحليل بنك الأسئلة:', error);
         document.body.innerHTML = `<h1>فشل تحميل بنك الأسئلة</h1><p>تأكد من صحة الرابط وأن جدول البيانات منشور على الويب.</p><p>تفاصيل الخطأ: ${error.message}</p>`;
