@@ -4,11 +4,11 @@ const WINNING_SCORE = 10;
 
 // --- AUDIO SETUP ---
 const sounds = {
-    click: new Audio('Button_click.mp3'),
-    modal: new Audio('modal_sound.mp3'),
-    point: new Audio('Point_award.mp3'),
-    win: new Audio('game_win.mp3'),
-    countdown: new Audio('Countdown.mp3')
+    click: new Audio('sounds/Button_click.mp3'),
+    modal: new Audio('sounds/modal_sound.mp3'),
+    point: new Audio('sounds/Point_award.mp3'),
+    win: new Audio('sounds/game_win.mp3'),
+    countdown: new Audio('sounds/Countdown.mp3')
 };
 
 function playSound(sound) {
@@ -291,22 +291,13 @@ function attachEventListeners() {
         }
     });
 
-    elements.toggleAnswerBtn.addEventListener('click', () => playSound('click'));
-    // --- EVENT LISTENERS ATTACHMENT ---
-function attachEventListeners() {
-    
-    // ... (الكود الحالي للأزرار الأخرى) ...
-
+    // **FIXED**: Corrected the typo and placed the listener here.
     elements.toggleAnswerBtn.addEventListener('click', () => {
-        playSound('click'); // <-- السطر المفقود مع تعديل بسيط
+        playSound('click');
         elements.modalAnswerArea.classList.toggle('hidden');
         elements.toggleAnswerBtn.textContent = elements.modalAnswerArea.classList.contains('hidden') ? "إظهار الإجابة" : "إخفاء الإجابة";
     });
     
-    elements.addSupporterBtn.addEventListener('click', () => {
-    // ... (باقي الكود) ...
-}
-
     elements.addSupporterBtn.addEventListener('click', () => {
         playSound('click');
         showModal(elements.supporterModal);
@@ -355,3 +346,4 @@ async function initializeGame() {
 }
 
 initializeGame();
+
