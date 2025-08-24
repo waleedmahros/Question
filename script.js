@@ -6,7 +6,7 @@ const WINNING_SCORE = 10;
 const sounds = {
     click: new Audio('Button_click.mp3'),
     modal: new Audio('modal_sound.mp3'),
-    point: new Audio('point_award.mp3'),
+    point: new Audio('Point_award.mp3'),
     win: new Audio('game_win.mp3'),
     countdown: new Audio('Countdown.mp3'),
     supporter: new Audio('supporter_added.mp3'),
@@ -15,18 +15,16 @@ const sounds = {
 sounds.countdown.loop = true; 
 sounds.modal.volume = 0.5;
 
-// **RELIABLE FIX**: This function will now be called by each button itself, ensuring sounds are ready.
 let isAudioUnlocked = false;
 function unlockAudio() {
     if (isAudioUnlocked) return;
-    // A tiny, silent sound played on the first click to wake up the audio engine.
     const silentSound = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
     silentSound.play().catch(() => {});
     isAudioUnlocked = true;
 }
 
 function playSound(sound) {
-    unlockAudio(); // Ensure audio is unlocked before playing.
+    unlockAudio();
     if (sounds[sound]) {
         sounds[sound].currentTime = 0;
         sounds[sound].play().catch(e => {});
@@ -252,6 +250,23 @@ function showSupporterAnnouncement(name, photoUrl, team) {
     }, 6000);
 }
 
+// **NEW** Function to show a zoomed-in image
+function showZoomedImage(src) {
+    const overlay = document.createElement('div');
+    overlay.className = 'image-zoom-overlay';
+    
+    const img = document.createElement('img');
+    img.src = src;
+    
+    overlay.appendChild(img);
+    
+    overlay.addEventListener('click', () => {
+        document.body.removeChild(overlay);
+    });
+    
+    document.body.appendChild(overlay);
+}
+
 // --- EVENT LISTENERS ATTACHMENT ---
 function attachEventListeners() {
     elements.nextQuestionBtn.addEventListener('click', () => {
@@ -263,7 +278,6 @@ function attachEventListeners() {
         }
         
         let questionPool = availableQuestions;
-        
         if (state.lastQuestionCategory) {
             const filteredPool = availableQuestions.filter(q => q.category !== state.lastQuestionCategory);
             if (filteredPool.length > 0) {
@@ -293,6 +307,12 @@ function attachEventListeners() {
         if (currentQuestion.type === 'image' && currentQuestion.image_url) {
             const imgElement = document.createElement('img');
             imgElement.src = currentQuestion.image_url;
+            imgElement.style.cursor = 'zoom-in'; // Add a visual cue
+            // **NEW** Add click listener for zoom
+            imgElement.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent modal from closing
+                showZoomedImage(imgElement.src);
+            });
             elements.modalQuestionArea.appendChild(imgElement);
         }
 
@@ -393,7 +413,7 @@ function attachEventListeners() {
     });
     
     elements.allCloseButtons.forEach(btn => btn.addEventListener('click', () => {
-        unlockAudio(); // Ensure audio is unlocked on close click
+        unlockAudio();
         if(btn.closest('.modal-overlay')?.id === 'celebration-overlay') {
             clearInterval(countdownInterval);
             stopSound('countdown');
@@ -403,7 +423,7 @@ function attachEventListeners() {
     
     elements.allModals.forEach(modal => {
         modal.addEventListener('click', (e) => {
-            unlockAudio(); // Ensure audio is unlocked on background click
+            unlockAudio();
             if (e.target === modal) {
                  if(modal.id === 'celebration-overlay') {
                     clearInterval(countdownInterval);
