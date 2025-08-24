@@ -4,12 +4,12 @@ const WINNING_SCORE = 10;
 
 // --- AUDIO SETUP ---
 const sounds = {
-    click: new Audio('sounds/Button_click.mp3'),
-    modal: new Audio('sounds/modal_sound.mp3'),
-    point: new Audio('sounds/Point_award.mp3'),
-    win: new Audio('sounds/game_win.mp3'),
-    countdown: new Audio('sounds/Countdown.mp3'),
-    supporter: new Audio('sounds/supporter_added.mp3')
+    click: new Audio('Button_click.mp3'),
+    modal: new Audio('modal_sound.mp3'),
+    point: new Audio('Point_award.mp3'),
+    win: new Audio('game_win.mp3'),
+    countdown: new Audio('countdown.mp3'),
+    supporter: new Audio('supporter_added.mp3')
 };
 sounds.countdown.loop = true; 
 
