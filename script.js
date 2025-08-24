@@ -4,12 +4,12 @@ const WINNING_SCORE = 10;
 
 // --- AUDIO SETUP ---
 const sounds = {
-    click: new Audio('Button_click.mp3'),
-    modal: new Audio('modal_sound.mp3'),
-    point: new Audio('Point_award.mp3'),
-    win: new Audio('game_win.mp3'),
-    countdown: new Audio('countdown.mp3'),
-    supporter: new Audio('supporter_added.mp3') // **NEW**
+    click: new Audio('sounds/Button_click.mp3'),
+    modal: new Audio('sounds/modal_sound.mp3'),
+    point: new Audio('sounds/Point_award.mp3'),
+    win: new Audio('sounds/game_win.mp3'),
+    countdown: new Audio('sounds/Countdown.mp3'),
+    supporter: new Audio('sounds/supporter_added.mp3')
 };
 sounds.countdown.loop = true; 
 
@@ -64,7 +64,6 @@ const elements = {
     allModals: document.querySelectorAll('.modal-overlay'),
     allCloseButtons: document.querySelectorAll('.modal-close-btn'),
 
-    // **NEW** Supporter Announcement Elements
     supporterAnnouncement: document.getElementById('supporter-announcement'),
     announcementPhoto: document.getElementById('announcement-photo'),
     announcementText: document.getElementById('announcement-text')
@@ -82,6 +81,7 @@ let state = {
     boysRoundsWon: 0,
     gameActive: true,
     usedQuestionIds: [],
+    lastQuestionCategory: null // **UPDATED**: Added to track the last category
 };
 
 // --- STATE MANAGEMENT ---
@@ -96,7 +96,12 @@ function saveState() {
 function loadState() {
     const savedState = localStorage.getItem('ronyGamesSession');
     if (savedState) {
-        Object.assign(state, JSON.parse(savedState));
+        const loadedState = JSON.parse(savedState);
+        // Ensure lastQuestionCategory exists to prevent errors with old saved states
+        if (!loadedState.lastQuestionCategory) {
+            loadedState.lastQuestionCategory = null;
+        }
+        Object.assign(state, loadedState);
     }
 }
 
@@ -220,7 +225,6 @@ function addSupporterToDOM(name, photoDataUrl, team) {
     list.appendChild(supporterCard);
 }
 
-// --- **NEW** Supporter Announcement Logic ---
 function showSupporterAnnouncement(name, photoUrl, team) {
     const teamName = team === 'girls' ? 'البنات' : 'الشباب';
     elements.announcementPhoto.src = photoUrl;
@@ -233,7 +237,7 @@ function showSupporterAnnouncement(name, photoUrl, team) {
     setTimeout(() => {
         elements.supporterAnnouncement.classList.remove('show');
         elements.supporterAnnouncement.classList.add('hidden');
-    }, 6000); // Announcement lasts for 6 seconds
+    }, 6000);
 }
 
 // --- EVENT LISTENERS ATTACHMENT ---
@@ -245,14 +249,36 @@ function attachEventListeners() {
             alert("انتهت جميع الأسئلة المتاحة لهذا اليوم!");
             return;
         }
+
+        // **UPDATED**: Smart category selection logic
+        let questionPool = availableQuestions;
         
-        const randomIndex = Math.floor(Math.random() * availableQuestions.length);
-        const currentQuestion = availableQuestions[randomIndex];
+        // 1. Try to create a pool of questions from different categories
+        if (state.lastQuestionCategory) {
+            const filteredPool = availableQuestions.filter(q => q.category !== state.lastQuestionCategory);
+            // 2. If the filtered pool is not empty, use it. Otherwise, use the original pool.
+            if (filteredPool.length > 0) {
+                questionPool = filteredPool;
+            }
+        }
         
-        availableQuestions.splice(randomIndex, 1);
+        // 3. Select a random question from the determined pool
+        const randomIndex = Math.floor(Math.random() * questionPool.length);
+        const currentQuestion = questionPool[randomIndex];
+        
+        // 4. Update the last category state
+        state.lastQuestionCategory = currentQuestion.category;
+        
+        // 5. Remove the chosen question from the main availableQuestions list
+        const originalIndex = availableQuestions.findIndex(q => q.id === currentQuestion.id);
+        if (originalIndex !== -1) {
+            availableQuestions.splice(originalIndex, 1);
+        }
+        
         state.usedQuestionIds.push(currentQuestion.id);
         saveState();
         
+        // Display question logic (remains the same)
         elements.modalQuestionArea.innerHTML = '';
         if (currentQuestion.question_text) {
             const textElement = document.createElement('p');
@@ -339,8 +365,6 @@ function attachEventListeners() {
                 addSupporterToDOM(supporterName, photoDataUrl, selectedTeam);
                 hideModal(elements.supporterModal);
                 elements.supporterForm.reset();
-
-                // **UPDATED**: Trigger the announcement
                 showSupporterAnnouncement(supporterName, photoDataUrl, selectedTeam);
             };
             reader.readAsDataURL(supporterPhotoInput.files[0]);
@@ -407,7 +431,9 @@ async function initializeGame() {
         
         allQuestions = lines.map(line => {
             const values = line.split(',');
-            return { id: values[0], type: values[1], question_text: values[2], image_url: values[3], answer: values[4], category: values[5] };
+            // **UPDATED**: Ensure category has a default value if empty
+            const category = values[5] ? values[5].trim() : 'عام'; 
+            return { id: values[0], type: values[1], question_text: values[2], image_url: values[3], answer: values[4], category: category };
         }).filter(q => q && q.id);
         
         availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
