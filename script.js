@@ -3,7 +3,6 @@ const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEfxl
 const WINNING_SCORE = 10;
 
 // --- AUDIO SETUP ---
-// **UPDATED**: Sound paths are now direct without the 'sounds/' folder.
 const sounds = {
     click: new Audio('Button_click.mp3'),
     modal: new Audio('modal_sound.mp3'),
@@ -16,27 +15,21 @@ const sounds = {
 sounds.countdown.loop = true; 
 sounds.modal.volume = 0.5;
 
-// Global flag to handle the first user interaction for sound playback.
-let hasInteracted = false;
-
-// Function to unlock audio on the first click.
+// **RELIABLE FIX**: This function will now be called by each button itself, ensuring sounds are ready.
+let isAudioUnlocked = false;
 function unlockAudio() {
-    if (hasInteracted) return;
-    Object.values(sounds).forEach(sound => {
-        sound.play().then(() => sound.pause()).catch(() => {});
-    });
-    hasInteracted = true;
-    // Remove the event listener after the first interaction.
-    document.body.removeEventListener('click', unlockAudio);
+    if (isAudioUnlocked) return;
+    // A tiny, silent sound played on the first click to wake up the audio engine.
+    const silentSound = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+    silentSound.play().catch(() => {});
+    isAudioUnlocked = true;
 }
-// Attach the listener to the whole page.
-document.body.addEventListener('click', unlockAudio);
-
 
 function playSound(sound) {
-    if (sounds[sound] && hasInteracted) {
+    unlockAudio(); // Ensure audio is unlocked before playing.
+    if (sounds[sound]) {
         sounds[sound].currentTime = 0;
-        sounds[sound].play().catch(e => console.error(`Could not play sound: ${sound}`, e));
+        sounds[sound].play().catch(e => {});
     }
 }
 
@@ -400,6 +393,7 @@ function attachEventListeners() {
     });
     
     elements.allCloseButtons.forEach(btn => btn.addEventListener('click', () => {
+        unlockAudio(); // Ensure audio is unlocked on close click
         if(btn.closest('.modal-overlay')?.id === 'celebration-overlay') {
             clearInterval(countdownInterval);
             stopSound('countdown');
@@ -409,6 +403,7 @@ function attachEventListeners() {
     
     elements.allModals.forEach(modal => {
         modal.addEventListener('click', (e) => {
+            unlockAudio(); // Ensure audio is unlocked on background click
             if (e.target === modal) {
                  if(modal.id === 'celebration-overlay') {
                     clearInterval(countdownInterval);
