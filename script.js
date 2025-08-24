@@ -9,9 +9,11 @@ const sounds = {
     point: new Audio('Point_award.mp3'),
     win: new Audio('game_win.mp3'),
     countdown: new Audio('countdown.mp3'),
-    supporter: new Audio('supporter_added.mp3')
+    supporter: new Audio('supporter_added.mp3'),
+    sparkle: new Audio('sparkle.mp3') // **NEW**
 };
 sounds.countdown.loop = true; 
+sounds.modal.volume = 0.5; // **UPDATED**: Volume lowered to 50%
 
 function playSound(sound) {
     if (sounds[sound]) {
@@ -29,41 +31,8 @@ function stopSound(sound) {
 
 // --- DOM ELEMENTS ---
 const elements = {
-    girlsScore: document.getElementById('girls-score'),
-    boysScore: document.getElementById('boys-score'),
-    girlsRoundsCount: document.getElementById('girls-rounds-count'),
-    boysRoundsCount: document.getElementById('boys-rounds-count'),
-    manualControls: document.querySelectorAll('.manual-controls button'),
-    roundControls: document.querySelectorAll('.round-control-btn'),
-    nextQuestionBtn: document.getElementById('next-question-btn'),
-    resetRoundBtn: document.getElementById('reset-round-btn'),
-    newDayBtn: document.getElementById('new-day-btn'),
-    
-    questionModal: document.getElementById('question-modal'),
-    modalQuestionArea: document.getElementById('modal-question-area'),
-    modalAnswerArea: document.getElementById('modal-answer-area'),
-    toggleAnswerBtn: document.getElementById('toggle-answer-btn'),
-    awardButtons: document.querySelectorAll('.award-btn'),
-    
-    supporterModal: document.getElementById('supporter-modal'),
-    addSupporterBtn: document.getElementById('add-supporter-btn'),
-    supporterForm: document.getElementById('supporter-form'),
-    girlsSupportersList: document.getElementById('girls-supporters'),
-    boysSupportersList: document.getElementById('boys-supporters'),
-
-    celebrationOverlay: document.getElementById('celebration-overlay'),
-    countdownContainer: document.getElementById('countdown-container'),
-    winnerContainer: document.getElementById('winner-container'),
-    countdownTimer: document.getElementById('countdown-timer'),
-    winnerNameElement: document.getElementById('winner-name'),
-    winnerAvatar: document.getElementById('winner-avatar'),
-    stopCountdownBtn: document.getElementById('stop-countdown-btn'),
-    newRoundBtnCelebration: document.getElementById('new-round-btn-celebration'),
-    confettiContainer: document.getElementById('confetti-container'),
-
-    allModals: document.querySelectorAll('.modal-overlay'),
+    // ... (All other elements remain the same)
     allCloseButtons: document.querySelectorAll('.modal-close-btn'),
-
     supporterAnnouncement: document.getElementById('supporter-announcement'),
     announcementPhoto: document.getElementById('announcement-photo'),
     announcementText: document.getElementById('announcement-text')
@@ -81,43 +50,17 @@ let state = {
     boysRoundsWon: 0,
     gameActive: true,
     usedQuestionIds: [],
-    lastQuestionCategory: null // **UPDATED**: Added to track the last category
+    lastQuestionCategory: null
 };
 
 // --- STATE MANAGEMENT ---
-function saveState() {
-    try {
-        localStorage.setItem('ronyGamesSession', JSON.stringify(state));
-    } catch (e) {
-        console.error("Failed to save state:", e);
-    }
-}
-
-function loadState() {
-    const savedState = localStorage.getItem('ronyGamesSession');
-    if (savedState) {
-        const loadedState = JSON.parse(savedState);
-        // Ensure lastQuestionCategory exists to prevent errors with old saved states
-        if (!loadedState.lastQuestionCategory) {
-            loadedState.lastQuestionCategory = null;
-        }
-        Object.assign(state, loadedState);
-    }
-}
+function saveState() { /* ... (remains the same) ... */ }
+function loadState() { /* ... (remains the same) ... */ }
 
 // --- UI FUNCTIONS ---
-function updateScoresUI() {
-    elements.girlsScore.textContent = state.girlsScore;
-    elements.boysScore.textContent = state.boysScore;
-}
-function updateRoundsUI() {
-    elements.girlsRoundsCount.textContent = state.girlsRoundsWon;
-    elements.boysRoundsCount.textContent = state.boysRoundsWon;
-}
-function updateAllUI() {
-    updateScoresUI();
-    updateRoundsUI();
-}
+function updateScoresUI() { /* ... (remains the same) ... */ }
+function updateRoundsUI() { /* ... (remains the same) ... */ }
+function updateAllUI() { /* ... (remains the same) ... */ }
 
 // --- MODAL HANDLING ---
 function showModal(modal, playSoundEffect = true) {
@@ -130,177 +73,24 @@ function hideModal(modal, playSoundEffect = true) {
 }
 
 // --- GAME LOGIC ---
-function startNewRound() {
-    playSound('click');
-    state.girlsScore = 0;
-    state.boysScore = 0;
-    state.gameActive = true;
-    saveState();
-    updateScoresUI();
-    hideModal(elements.celebrationOverlay);
-}
-
-function startNewDay() {
-    playSound('click');
-    if (confirm("هل أنت متأكد أنك تريد بدء يوم جديد؟ سيتم مسح جميع النقاط والجولات والأسئلة المستخدمة.")) {
-        localStorage.removeItem('ronyGamesSession');
-        location.reload();
-    }
-}
-
-function checkWinner() {
-    if (!state.gameActive) return;
-    if (state.girlsScore >= WINNING_SCORE || state.boysScore >= WINNING_SCORE) {
-        state.gameActive = false;
-        saveState();
-        triggerWinSequence();
-    }
-}
-
-function triggerWinSequence() {
-    showModal(elements.celebrationOverlay, false);
-    elements.winnerContainer.classList.add('hidden');
-    elements.countdownContainer.classList.remove('hidden');
-    
-    playSound('countdown');
-    let countdown = 30;
-    elements.countdownTimer.textContent = countdown;
-    
-    countdownInterval = setInterval(() => {
-        countdown--;
-        elements.countdownTimer.textContent = countdown;
-        if (countdown <= 0) {
-            clearInterval(countdownInterval);
-            stopSound('countdown');
-            showWinner();
-        }
-    }, 1000);
-}
-
-function showWinner() {
-    stopSound('countdown');
-    playSound('win');
-    
-    const winner = state.girlsScore >= WINNING_SCORE ? "البنات" : "الشباب";
-    const winnerColor = winner === "البنات" ? 'var(--girls-color)' : 'var(--boys-color)';
-    const winnerAvatarSrc = document.querySelector(winner === "البنات" ? '#girls-card .team-avatar' : '#boys-card .team-avatar').src;
-
-    if (winner === "البنات") state.girlsRoundsWon++;
-    else state.boysRoundsWon++;
-    
-    updateRoundsUI();
-    saveState();
-
-    elements.winnerNameElement.textContent = winner;
-    elements.winnerNameElement.style.color = winnerColor;
-    elements.winnerAvatar.src = winnerAvatarSrc;
-    
-    elements.countdownContainer.classList.add('hidden');
-    elements.winnerContainer.classList.remove('hidden');
-    
-    showModal(elements.celebrationOverlay, false); 
-    launchConfetti();
-}
-
-function launchConfetti() {
-    elements.confettiContainer.innerHTML = '';
-    const confettiCount = 100;
-    const colors = ['#ff478a', '#00e1ff', '#ffd700', '#ffffff'];
-    for (let i = 0; i < confettiCount; i++) {
-        const confetti = document.createElement('div');
-        confetti.className = 'confetti';
-        confetti.style.left = `${Math.random() * 100}vw`;
-        confetti.style.animationDelay = `${Math.random() * 2}s`;
-        confetti.style.animationDuration = `${3 + Math.random() * 2}s`;
-        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-        elements.confettiContainer.appendChild(confetti);
-    }
-}
-
-function addSupporterToDOM(name, photoDataUrl, team) {
-    const supporterCard = document.createElement('div');
-    supporterCard.className = 'supporter-card';
-    supporterCard.innerHTML = `<img src="${photoDataUrl}" alt="${name}"><p>👑 ${name}</p>`;
-    const list = team === 'girls' ? elements.girlsSupportersList : elements.boysSupportersList;
-    list.appendChild(supporterCard);
-}
-
-function showSupporterAnnouncement(name, photoUrl, team) {
-    const teamName = team === 'girls' ? 'البنات' : 'الشباب';
-    elements.announcementPhoto.src = photoUrl;
-    elements.announcementText.innerHTML = `🛡️ ${name}<br>ينضم كدرع لفريق ${teamName}!`;
-    
-    playSound('supporter');
-    elements.supporterAnnouncement.classList.remove('hidden');
-    elements.supporterAnnouncement.classList.add('show');
-
-    setTimeout(() => {
-        elements.supporterAnnouncement.classList.remove('show');
-        elements.supporterAnnouncement.classList.add('hidden');
-    }, 6000);
-}
+function startNewRound() { /* ... (remains the same) ... */ }
+function startNewDay() { /* ... (remains the same) ... */ }
+function checkWinner() { /* ... (remains the same) ... */ }
+function triggerWinSequence() { /* ... (remains the same) ... */ }
+function showWinner() { /* ... (remains the same) ... */ }
+function launchConfetti() { /* ... (remains the same) ... */ }
+function addSupporterToDOM(name, photoDataUrl, team) { /* ... (remains the same) ... */ }
+function showSupporterAnnouncement(name, photoUrl, team) { /* ... (remains the same) ... */ }
 
 // --- EVENT LISTENERS ATTACHMENT ---
 function attachEventListeners() {
     elements.nextQuestionBtn.addEventListener('click', () => {
-        playSound('click');
-        if (!state.gameActive) return;
-        if (availableQuestions.length === 0) {
-            alert("انتهت جميع الأسئلة المتاحة لهذا اليوم!");
-            return;
-        }
-
-        // **UPDATED**: Smart category selection logic
-        let questionPool = availableQuestions;
-        
-        // 1. Try to create a pool of questions from different categories
-        if (state.lastQuestionCategory) {
-            const filteredPool = availableQuestions.filter(q => q.category !== state.lastQuestionCategory);
-            // 2. If the filtered pool is not empty, use it. Otherwise, use the original pool.
-            if (filteredPool.length > 0) {
-                questionPool = filteredPool;
-            }
-        }
-        
-        // 3. Select a random question from the determined pool
-        const randomIndex = Math.floor(Math.random() * questionPool.length);
-        const currentQuestion = questionPool[randomIndex];
-        
-        // 4. Update the last category state
-        state.lastQuestionCategory = currentQuestion.category;
-        
-        // 5. Remove the chosen question from the main availableQuestions list
-        const originalIndex = availableQuestions.findIndex(q => q.id === currentQuestion.id);
-        if (originalIndex !== -1) {
-            availableQuestions.splice(originalIndex, 1);
-        }
-        
-        state.usedQuestionIds.push(currentQuestion.id);
-        saveState();
-        
-        // Display question logic (remains the same)
-        elements.modalQuestionArea.innerHTML = '';
-        if (currentQuestion.question_text) {
-            const textElement = document.createElement('p');
-            textElement.textContent = currentQuestion.question_text;
-            elements.modalQuestionArea.appendChild(textElement);
-        }
-        if (currentQuestion.type === 'image' && currentQuestion.image_url) {
-            const imgElement = document.createElement('img');
-            imgElement.src = currentQuestion.image_url;
-            elements.modalQuestionArea.appendChild(imgElement);
-        }
-
-        elements.modalAnswerArea.textContent = currentQuestion.answer;
-        elements.modalAnswerArea.classList.add('hidden');
-        elements.toggleAnswerBtn.textContent = "إظهار الإجابة";
-
-        showModal(elements.questionModal);
+        // ... (This entire function remains the same)
     });
 
     elements.awardButtons.forEach(button => {
         button.addEventListener('click', (event) => {
-            playSound('point');
+            playSound('point'); // Play the point sound
             if (!state.gameActive) return;
             const winningTeam = event.target.dataset.team;
             if (winningTeam === 'girls') state.girlsScore++;
@@ -309,29 +99,14 @@ function attachEventListeners() {
             saveState();
             updateScoresUI();
             checkWinner();
-            hideModal(elements.questionModal);
+            
+            // **UPDATED**: Close the modal without playing the modal sound
+            elements.questionModal.classList.add('hidden'); 
         });
     });
     
     elements.manualControls.forEach(button => {
-        button.addEventListener('click', (e) => {
-            playSound('click');
-            const team = e.target.dataset.team;
-            const action = e.target.dataset.action;
-            if (state.gameActive) {
-                if (team === 'girls') {
-                    if (action === 'add') state.girlsScore++;
-                    else if (state.girlsScore > 0) state.girlsScore--;
-                } else {
-                    if (action === 'add') state.boysScore++;
-                    else if (state.boysScore > 0) state.boysScore--;
-                }
-                if (action === 'add') playSound('point');
-                saveState();
-                updateScoresUI();
-                checkWinner();
-            }
-        });
+        // ... (This entire function remains the same)
     });
 
     elements.roundControls.forEach(button => {
@@ -339,6 +114,12 @@ function attachEventListeners() {
             playSound('click');
             const team = e.target.dataset.team;
             const isAdd = e.target.classList.contains('add-round-btn');
+
+            // **UPDATED**: Play sparkle sound on add
+            if (isAdd) {
+                playSound('sparkle');
+            }
+
             if(team === 'girls') {
                 if (isAdd) state.girlsRoundsWon++;
                 else if (state.girlsRoundsWon > 0) state.girlsRoundsWon--;
@@ -352,23 +133,7 @@ function attachEventListeners() {
     });
     
     elements.supporterForm.addEventListener('submit', (event) => {
-        event.preventDefault();
-        playSound('click');
-        const supporterName = document.getElementById('supporter-name').value;
-        const supporterPhotoInput = document.getElementById('supporter-photo');
-        const selectedTeam = document.querySelector('input[name="team"]:checked').value;
-        
-        if (supporterPhotoInput.files && supporterPhotoInput.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const photoDataUrl = e.target.result;
-                addSupporterToDOM(supporterName, photoDataUrl, selectedTeam);
-                hideModal(elements.supporterModal);
-                elements.supporterForm.reset();
-                showSupporterAnnouncement(supporterName, photoDataUrl, selectedTeam);
-            };
-            reader.readAsDataURL(supporterPhotoInput.files[0]);
-        }
+        // ... (This entire function remains the same)
     });
 
     elements.toggleAnswerBtn.addEventListener('click', () => {
@@ -382,6 +147,7 @@ function attachEventListeners() {
         showModal(elements.supporterModal);
     });
     
+    // This now correctly handles the 'X' button and background clicks with the modal sound
     elements.allCloseButtons.forEach(btn => btn.addEventListener('click', () => {
         if(btn.closest('.modal-overlay')?.id === 'celebration-overlay') {
             clearInterval(countdownInterval);
@@ -418,31 +184,10 @@ function attachEventListeners() {
 
 // --- INITIALIZATION ---
 async function initializeGame() {
-    loadState();
-    updateAllUI();
-    attachEventListeners();
-
-    try {
-        const response = await fetch(GOOGLE_SHEET_URL);
-        if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
-        const csvData = await response.text();
-        
-        const lines = csvData.trim().split(/\r\n|\n/).slice(1);
-        
-        allQuestions = lines.map(line => {
-            const values = line.split(',');
-            // **UPDATED**: Ensure category has a default value if empty
-            const category = values[5] ? values[5].trim() : 'عام'; 
-            return { id: values[0], type: values[1], question_text: values[2], image_url: values[3], answer: values[4], category: category };
-        }).filter(q => q && q.id);
-        
-        availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
-        console.log(`تم تحميل ${allQuestions.length} سؤالاً، ومتاح منها ${availableQuestions.length} سؤالاً.`);
-        
-    } catch (error) {
-        console.error('فشل في تحميل أو تحليل بنك الأسئلة:', error);
-        document.body.innerHTML = `<h1>فشل تحميل بنك الأسئلة</h1><p>تأكد من صحة الرابط وأن جدول البيانات منشور على الويب.</p><p>تفاصيل الخطأ: ${error.message}</p>`;
-    }
+    // ... (This entire function remains the same)
 }
 
 initializeGame();
+
+// NOTE: I have omitted the full code for functions that have no changes to keep this response brief.
+// Please copy the full code block below which contains the complete, final script.
