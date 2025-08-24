@@ -285,3 +285,25 @@ footer button { font-family: 'Cairo', sans-serif; font-size: 1.1em; padding: 15p
     margin: 0;
     text-shadow: 0 2px 5px black;
 }
+/* --- **NEW** Image Zoom Feature --- */
+.image-zoom-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 201; /* Must be higher than other modals */
+    cursor: zoom-out;
+}
+
+.image-zoom-overlay img {
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
+    border: 4px solid white;
+    border-radius: 10px;
+}
