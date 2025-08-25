@@ -1,8 +1,8 @@
 // --- CONFIGURATION ---
 const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEfxl2DDK4ZY-pFgNMnNlzuXJKf9ysLh1u30CW0aukQVNJ3oEPXTMZ8S8g685fxGYmVv5lmve4ZLrN/pub?output=csv';
 const WINNING_SCORE = 10;
-// **FINAL FIX**: Using a CORS proxy to prevent network errors.
-const PROXY_URL = 'https://cors-anywhere.herokuapp.com/';
+// **FINAL FIX v2**: Using a different, more reliable CORS proxy.
+const PROXY_URL = 'https://api.allorigins.win/raw?url=';
 
 // --- AUDIO SETUP ---
 const sounds = {
@@ -455,8 +455,8 @@ async function initializeGame() {
     attachEventListeners();
 
     try {
-        // **FINAL FIX**: The fetch URL is now passed through the proxy.
-        const response = await fetch(`${PROXY_URL}${GOOGLE_SHEET_URL}`);
+        // **FINAL FIX v2**: Using the new proxy URL.
+        const response = await fetch(`${PROXY_URL}${encodeURIComponent(GOOGLE_SHEET_URL)}`);
         if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
         const csvData = await response.text();
         
