@@ -1,6 +1,6 @@
 // --- CONFIGURATION ---
-// **IMPORTANT**: https://docs.google.com/spreadsheets/d/e/2PACX-1vQEfxl2DDK4ZY-pFgNMnNlzuXJKf9ysLh1u30CW0aukQVNJ3oEPXTMZ8S8g685fxGYmVv5lmve4ZLrN/pub?output=tsv
-const GOOGLE_SHEET_URL = 'YOUR_NEW_TSV_LINK_HERE'; 
+// **IMPORTANT**: 
+const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEfxl2DDK4ZY-pFgNMnNlzuXJKf9ysLh1u30CW0aukQVNJ3oEPXTMZ8S8g685fxGYmVv5lmve4ZLrN/pub?output=tsv'; 
 const WINNING_SCORE = 10;
 
 // --- AUDIO SETUP ---
