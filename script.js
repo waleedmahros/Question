@@ -1,12 +1,14 @@
 // --- CONFIGURATION ---
 const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEfxl2DDK4ZY-pFgNMnNlzuXJKf9ysLh1u30CW0aukQVNJ3oEPXTMZ8S8g685fxGYmVv5lmve4ZLrN/pub?output=csv';
 const WINNING_SCORE = 10;
+// **FINAL FIX**: Using a CORS proxy to prevent network errors.
+const PROXY_URL = 'https://cors-anywhere.herokuapp.com/';
 
 // --- AUDIO SETUP ---
 const sounds = {
     click: new Audio('Button_click.mp3'),
     modal: new Audio('modal_sound.mp3'),
-    point: new Audio('point_award.mp3'),
+    point: new Audio('Point_award.mp3'),
     win: new Audio('game_win.mp3'),
     countdown: new Audio('Countdown.mp3'),
     supporter: new Audio('supporter_added.mp3'),
@@ -250,7 +252,6 @@ function showSupporterAnnouncement(name, photoUrl, team) {
     }, 6000);
 }
 
-// **NEW** Function to show a zoomed-in image
 function showZoomedImage(src) {
     const overlay = document.createElement('div');
     overlay.className = 'image-zoom-overlay';
@@ -307,10 +308,9 @@ function attachEventListeners() {
         if (currentQuestion.type === 'image' && currentQuestion.image_url) {
             const imgElement = document.createElement('img');
             imgElement.src = currentQuestion.image_url;
-            imgElement.style.cursor = 'zoom-in'; // Add a visual cue
-            // **NEW** Add click listener for zoom
+            imgElement.style.cursor = 'zoom-in';
             imgElement.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent modal from closing
+                e.stopPropagation();
                 showZoomedImage(imgElement.src);
             });
             elements.modalQuestionArea.appendChild(imgElement);
@@ -455,7 +455,8 @@ async function initializeGame() {
     attachEventListeners();
 
     try {
-        const response = await fetch(GOOGLE_SHEET_URL);
+        // **FINAL FIX**: The fetch URL is now passed through the proxy.
+        const response = await fetch(`${PROXY_URL}${GOOGLE_SHEET_URL}`);
         if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
         const csvData = await response.text();
         
