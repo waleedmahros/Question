@@ -1,5 +1,5 @@
 // --- CONFIGURATION ---
-// **IMPORTANT**: 
+// **IMPORTANT**: Replace this URL with your .tsv link from Google Sheets
 const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEfxl2DDK4ZY-pFgNMnNlzuXJKf9ysLh1u30CW0aukQVNJ3oEPXTMZ8S8g685fxGYmVv5lmve4ZLrN/pub?output=tsv'; 
 const WINNING_SCORE = 10;
 
@@ -453,11 +453,6 @@ async function initializeGame() {
     updateAllUI();
     attachEventListeners();
 
-    if (!GOOGLE_SHEET_URL || GOOGLE_SHEET_URL === 'YOUR_NEW_TSV_LINK_HERE') {
-        document.body.innerHTML = `<h1>خطأ: رابط بنك الأسئلة غير موجود!</h1><p>الرجاء التأكد من وضع رابط النشر بصيغة .tsv في ملف script.js</p>`;
-        return;
-    }
-
     try {
         const response = await fetch(GOOGLE_SHEET_URL);
         if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
@@ -467,14 +462,12 @@ async function initializeGame() {
         const headers = lines[0].split('\t').map(h => h.trim());
         const expectedHeaders = ['id', 'type', 'question_text', 'image_url', 'answer', 'category'];
 
-        // Check if headers match what we expect
         if (headers.length < expectedHeaders.length || !expectedHeaders.every((h, i) => headers[i] === h)) {
              document.body.innerHTML = `<h1>خطأ في تنسيق جدول البيانات</h1><p>تأكد من أن الأعمدة هي بالترتيب التالي: ${expectedHeaders.join(', ')}</p>`;
              return;
         }
         
         allQuestions = lines.slice(1).map(line => {
-            // **UPDATED**: This now splits by tab, which is much more reliable
             const values = line.split('\t');
             const category = values[5] ? values[5].trim() : 'عام'; 
             return { 
@@ -490,8 +483,8 @@ async function initializeGame() {
         availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
         console.log(`تم تحميل ${allQuestions.length} سؤالاً، ومتاح منها ${availableQuestions.length} سؤالاً.`);
 
-        if (allQuestions.length === 0) {
-             document.body.innerHTML = `<h1>لم يتم تحميل أي أسئلة</h1><p>تأكد من أن جدول البيانات يحتوي على أسئلة وأن الرابط صحيح.</p>`;
+        if (allQuestions.length === 0 && lines.length > 1) {
+             document.body.innerHTML = `<h1>لم يتم تحميل أي أسئلة</h1><p>قد يكون هناك خطأ في تنسيق الأسئلة داخل الجدول. تأكد من عدم وجود أسطر فارغة.</p>`;
         }
         
     } catch (error) {
