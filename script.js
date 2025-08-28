@@ -164,31 +164,63 @@ function handleCardClick(cardNumber, winningTeam) {
 function roundToNearestFive(num) { return Math.floor(num / 5) * 5; }
 
 function applyCardEffect(effect, team) {
+    // This is the full, correct switch statement
     const opponent = team === 'girls' ? 'boys' : 'girls';
     const value = parseInt(effect.Effect_Value) || 0;
     let target = effect.Target === 'OPPONENT' ? opponent : team;
+    let effectApplied = true;
 
-    if (effect.Sound_Effect) playSound(effect.Sound_Effect);
-    else if (['SUBTRACT_POINTS', 'RESET_SCORE'].includes(effect.Effect_Type)) playSound('negative_effect');
-    else playSound('positive_effect');
+    if (effect.Sound_Effect) { playSound(effect.Sound_Effect); }
+    else if (['SUBTRACT_POINTS', 'RESET_SCORE', 'LOSE_QUARTER_SCORE', 'REVERSE_CHARITY', 'SUBTRACT_HALF_OPPONENT_SCORE'].includes(effect.Effect_Type)) { playSound('negative_effect'); }
+    else if (effect.Effect_Type !== 'NO_EFFECT' && effect.Effect_Type !== 'MANUAL_EFFECT') { playSound('positive_effect'); }
 
-    // --- Apply actual effect ---
     switch (effect.Effect_Type) {
-        case 'ADD_POINTS':
-            if (effect.Target === 'BOTH') { state.girlsScore += value; state.boysScore += value; } 
-            else { state[`${target}Score`] += value; }
-            break;
+        case 'ADD_POINTS': if (effect.Target === 'BOTH') { state.girlsScore += value; state.boysScore += value; } else { state[`${target}Score`] += value; } break;
         case 'SUBTRACT_POINTS': state[`${target}Score`] -= value; break;
-        // ... (All other card effects from our discussions go here)
+        case 'STEAL_POINTS': state[`${team}Score`] += value; state[`${opponent}Score`] -= value; break;
+        case 'SWAP_SCORES': [state.girlsScore, state.boysScore] = [state.boysScore, state.girlsScore]; break;
+        case 'RESET_SCORE': if (state[`${target}Score`] > 0) { state[`${target}Score`] = 0; } break;
+        case 'EQUALIZE_SCORES': const total = state.girlsScore + state.boysScore; const avg = roundToNearestFive(Math.floor(total / 2)); state.girlsScore = avg; state.boysScore = avg; break;
+        case 'CHARITY': const higherTeam = state.girlsScore > state.boysScore ? 'girls' : 'boys'; const lowerTeam = higherTeam === 'girls' ? 'boys' : 'girls'; if (higherTeam !== lowerTeam && state[`${higherTeam}Score`] > 0) { const charityAmount = roundToNearestFive(Math.floor(state[`${higherTeam}Score`] / 2)); state[`${higherTeam}Score`] -= charityAmount; state[`${lowerTeam}Score`] += charityAmount; } break;
+        case 'REVERSE_CHARITY': const higher = state.girlsScore > state.boysScore ? 'girls' : 'boys'; const lower = higher === 'girls' ? 'boys' : 'girls'; if (higher !== lower && state[`${lower}Score`] > 0) { const reverseCharityAmount = roundToNearestFive(Math.floor(state[`${lower}Score`] / 2)); state[`${lower}Score`] -= reverseCharityAmount; state[`${higher}Score`] += reverseCharityAmount; } break;
+        case 'SET_SCORE': if (state[`${target}Score`] < value) { state[`${target}Score`] = value; } break;
+        case 'HALVE_IF_OVER_100': if (state[`${team}Score`] > 100) { state[`${team}Score`] = roundToNearestFive(Math.floor(state[`${team}Score`] / 2)); } break;
+        case 'HALVE_SCORE': if (state[`${target}Score`] > 0) { state[`${target}Score`] = roundToNearestFive(Math.floor(state[`${target}Score`] / 2)); } break;
+        case 'LOSE_QUARTER_SCORE': if (state[`${target}Score`] > 0) { state[`${target}Score`] = roundToNearestFive(state[`${target}Score`] * 0.75); } break;
+        case 'SUBTRACT_HALF_OPPONENT_SCORE': if (state[`${opponent}Score`] > 0) { const amountToSubtract = roundToNearestFive(Math.floor(state[`${opponent}Score`] / 2)); state[`${team}Score`] -= amountToSubtract; } break;
+        case 'CONDITIONAL_ADD_GIRLS': state[`${team}Score`] += (team === 'girls' ? 30 : 10); break;
+        case 'CONDITIONAL_ADD_BOYS': state[`${team}Score`] += (team === 'boys' ? 30 : 10); break;
+        case 'ROBIN_HOOD': if (state[`${team}Score`] < state[`${opponent}Score`] && state[`${opponent}Score`] > 0) { const robinAmount = roundToNearestFive(Math.floor(state[`${opponent}Score`] * 0.25)); state[`${opponent}Score`] -= robinAmount; state[`${team}Score`] += robinAmount; } break;
+        case 'IMMUNITY': state.activeEffects[target].immunity = value; break;
+        case 'FREEZE_OPPONENT': state.activeEffects[opponent].freeze = value; break;
+        case 'DOUBLE_NEXT_Q': state.activeEffects[target].double_next_q = value; break;
+        case 'GRANT_VETO': state.veto[target] = true; break;
+        case 'REVENGE': if(state.lastNegativeEffect) { applyCardEffect(state.lastNegativeEffect.effect, opponent); } break;
+        case 'TAXES': state.activeEffects[team].taxes = value; break;
+        case 'REFLECTIVE_SHIELD': state.activeEffects[target].shield = value; break;
+        case 'SABOTAGE': state.activeEffects[opponent].sabotage = value; break;
+        case 'GOLDEN_GOOSE': state.activeEffects[team].golden_goose = value; break;
+        case 'INFLATION': state.activeEffects.girls.inflation = value; state.activeEffects.boys.inflation = value; break;
+        case 'WINNING_STREAK': if(!state.activeEffects[team].winning_streak) {state.activeEffects[team].winning_streak = 0;} state.activeEffects[team].winning_streak = 1; break;
+        case 'LEECH': state.activeEffects[team].leech = value; break;
+        case 'GAMBLE': showInteractiveModal(effect, team); effectApplied = false; break;
+        case 'PLAYER_CHOICE_RISK': case 'MANUAL_EFFECT': case 'SHOW_IMAGE':
+            showInteractiveModal(effect, team);
+            effectApplied = false;
+            break;
+        case 'NO_EFFECT': break;
+        default: console.warn('Unknown effect type:', effect.Effect_Type); break;
     }
-    
-    updateAllUI();
-    saveState();
-    checkWinner(); // Check for winner AFTER the effect is applied.
+
+    if (effectApplied) {
+        updateAllUI();
+        saveState();
+        checkWinner();
+    }
 }
 
-function updateVisualAids() { /* ... */ }
-function showInteractiveModal(effect, team) { /* ... */ }
+function showInteractiveModal(effect, team) { /* ... This function needs to be fully implemented ... */ }
+function updateVisualAids() { /* ... This function needs to be fully implemented ... */ }
 
 // --- INITIALIZATION & EVENT LISTENERS ---
 async function initializeGame() {
@@ -206,7 +238,7 @@ async function initializeGame() {
         if (allCards.length > 0) {
             shuffleAndPrepareCards();
         } else {
-            console.error("CRITICAL: No cards were loaded. Check Sheet name ('cards'), sharing settings, and API key.");
+            console.error("CRITICAL: No cards loaded.");
         }
     } catch (error) { document.body.innerHTML = `<h1>فشل تحميل بيانات اللعبة</h1><p>${error.message}</p>`; }
 }
@@ -217,7 +249,6 @@ function attachEventListeners() {
         if (!state.gameActive) { alert("الجولة متوقفة حالياً!"); return; }
         if (availableQuestions.length === 0) { alert("انتهت جميع الأسئلة!"); return; }
         
-        // **FIX**: Decrement active effects timers
         ['girls', 'boys'].forEach(team => {
             if (state.activeEffects[team]) {
                 for (const effect in state.activeEffects[team]) {
@@ -249,7 +280,15 @@ function attachEventListeners() {
             playSound('point');
             hideModal(elements.questionModal);
             
-            state[`${winningTeam}Score`] += QUESTION_POINTS;
+            let pointsFromQuestion = QUESTION_POINTS;
+            if (state.activeEffects.girls?.inflation > 0) pointsFromQuestion *= 2;
+            if (state.activeEffects[winningTeam]?.double_next_q > 0) { pointsFromQuestion *= 2; state.activeEffects[winningTeam].double_next_q = 0; }
+            if (state.activeEffects[winningTeam]?.golden_goose > 0) pointsFromQuestion += 10;
+            if (state.activeEffects[winningTeam]?.winning_streak > 0) { pointsFromQuestion += 10 * state.activeEffects[winningTeam].winning_streak; state.activeEffects[winningTeam].winning_streak++; }
+            const opponent = winningTeam === 'girls' ? 'boys' : 'girls';
+            if (state.activeEffects[opponent]?.winning_streak > 0) state.activeEffects[opponent].winning_streak = 0;
+            
+            state[`${winningTeam}Score`] += pointsFromQuestion;
             updateAllUI();
             
             if (state.questionNumber % 2 === 0) {
@@ -282,12 +321,8 @@ function attachEventListeners() {
             playSound('click');
             const team = e.target.dataset.team;
             const isAdd = e.target.classList.contains('add-round-btn');
-            if (isAdd) {
-                state[`${team}RoundsWon`]++;
-                playSound('sparkle');
-            } else if (state[`${team}RoundsWon`] > 0) {
-                state[`${team}RoundsWon`]--;
-            }
+            if (isAdd) { state[`${team}RoundsWon`]++; playSound('sparkle'); } 
+            else if (state[`${team}RoundsWon`] > 0) { state[`${team}RoundsWon`]--; }
             updateRoundsUI();
             saveState();
         });
@@ -317,6 +352,8 @@ function attachEventListeners() {
         });
     });
     
+    elements.addSupporterBtn.addEventListener('click', () => showModal(elements.supporterModal));
+
     elements.resetRoundBtn.addEventListener('click', startNewRound);
     elements.newRoundBtnCelebration.addEventListener('click', startNewRound);
     elements.newDayBtn.addEventListener('click', startNewDay);
