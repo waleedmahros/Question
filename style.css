@@ -47,7 +47,7 @@ header h1 { font-size: 2.5em; font-weight: 900; margin: 0 0 5px 0; background: l
 #boys-card h2 { color: var(--boys-color); }
 .card-main-content { display: flex; align-items: center; justify-content: space-between; flex-grow: 1; padding: 0 5px; gap: 0; }
 .team-avatar { width: 85px; height: 85px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-.score { font-size: clamp(2.8em, 12vw, 3.5em); font-weight: 900; color: var(--gold-color); animation: pulse 3s infinite ease-in-out; text-align: center; flex-grow: 1; }
+.score { font-size: clamp(2.8em, 12vw, 3.5em); font-weight: 900; color: var(--gold-color); animation: pulse 3s infinite ease-in-out; text-align: center; flex-grow: 1; direction: ltr; /* This fixes the negative sign issue */ }
 .manual-controls { display: flex; gap: 10px; justify-content: center; }
 .manual-controls button { font-size: 1.4em; font-weight: 900; width: 40px; height: 40px; border-radius: 50%; border: none; color: white; cursor: pointer; transition: all 0.2s ease; line-height: 40px; }
 #girls-card .manual-controls button { background: var(--girls-color); }
@@ -88,20 +88,18 @@ footer button { font-family: 'Cairo', sans-serif; font-size: 1em; padding: 12px 
 #modal-answer-area { font-size: 1.5em; color: var(--gold-color); background-color: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; margin-bottom: 20px; }
 .modal-controls { display: flex; flex-direction: column; gap: 15px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 20px; }
 
-/* --- Card Vault Modal --- */
+/* --- Card Vault & Reveal Modals --- */
 .wide-modal { max-width: 95%; width: 1200px; }
 #card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 10px; overflow-y: auto; max-height: 70vh; padding: 10px; }
 .card-button { font-family: 'Cairo', sans-serif; font-size: 1.6em; font-weight: 900; color: white; background: linear-gradient(145deg, #2a2f4a, #1a1f3a); border: 2px solid; border-image-slice: 1; border-image-source: linear-gradient(to right, var(--girls-color), var(--boys-color)); border-radius: 12px; height: 70px; cursor: pointer; transition: all 0.2s ease-in-out; text-shadow: 0 0 5px black; }
 .card-button:hover:not(:disabled) { transform: translateY(-5px) scale(1.05); box-shadow: 0 0 25px var(--gold-color); border-image-source: linear-gradient(to right, #ffed4a, var(--gold-color)); }
 .card-button.used { background: #222; border-image: none; border-color: #444; color: #666; cursor: not-allowed; opacity: 0.5; }
-
-/* --- Reveal Card Modal --- */
 .reveal-modal-content { border-width: 4px; border-image-slice: 1; border-image-source: linear-gradient(45deg, var(--gold-color), var(--girls-color), var(--boys-color)); align-items: center; text-align: center; }
 #reveal-card-title { font-size: 2.2em; font-weight: 900; color: var(--gold-color); margin-bottom: 15px; text-shadow: 0 0 15px var(--gold-color); }
 #reveal-card-description { font-size: 1.4em; margin-bottom: 30px; }
 #reveal-card-confirm-btn { font-family: 'Cairo', sans-serif; font-size: 1.2em; padding: 15px 40px; border-radius: 50px; border: none; cursor: pointer; background: var(--gold-color); color: var(--dark-bg); }
 
-/* --- Interactive Task Modal --- */
+/* --- Interactive Task Modal & Other Overlays --- */
 #interactive-description { font-size: 1.4em; margin-bottom: 20px; }
 #interactive-timer { font-size: 4em; color: var(--gold-color); margin-bottom: 20px; font-weight: 900; animation: pulse 1s infinite; }
 #interactive-input-area input { font-family: 'Cairo', sans-serif; width: 100%; padding: 15px; font-size: 1.5em; text-align: center; border-radius: 10px; border: 2px solid var(--gold-color); background-color: var(--dark-bg); color: white; }
@@ -111,8 +109,6 @@ footer button { font-family: 'Cairo', sans-serif; font-size: 1em; padding: 12px 
 .interactive-btn-fail { background-color: #c0392b; }
 .interactive-btn-confirm { background-color: var(--gold-color); color: var(--dark-bg); }
 .interactive-btn-choice { background-color: var(--boys-color); }
-
-/* --- Other Modals & Overlays --- */
 #celebration-overlay { flex-direction: column; }
 #countdown-container { display: flex; flex-direction: column; align-items: center; }
 #countdown-timer { font-size: 10em; color: var(--gold-color); }
