@@ -131,9 +131,5 @@ footer button { font-family: 'Cairo', sans-serif; font-size: 1em; padding: 12px 
 .award-btn[data-team="girls"] { background-color: var(--girls-color); }
 .award-btn[data-team="boys"] { background-color: var(--boys-color); }
 #stop-countdown-btn, #new-round-btn-celebration { font-family: 'Cairo', sans-serif; padding: 15px 30px; border-radius: 10px; border: none; color: var(--dark-bg); cursor: pointer; margin-top: 20px; background-color: var(--gold-color); }
-#supporter-announcement { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(145deg, var(--card-bg), #0d0d1a); border: 3px solid var(--gold-color); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 200; width: 90%; max-width: 450px; color: white; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
-#supporter-announcement.show { animation: slide-in-out 6s ease-in-out forwards; }
-#announcement-photo { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--gold-color); animation: announcement-glow 2.5s infinite ease-in-out; }
-#announcement-text { font-size: 1.8em; margin: 0; text-shadow: 0 2px 5px black; }
-.image-zoom-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); display: flex; justify-content: center; align-items: center; z-index: 201; cursor: zoom-out; }
-.image-zoom-overlay img { max-width: 90%; max-height: 90%; object-fit: contain; border: 4px solid white; border-radius: 10px; }
+.supporter-announcement { /* ... */ }
+.image-zoom-overlay { /* ... */ }

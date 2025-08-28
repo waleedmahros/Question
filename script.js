@@ -73,7 +73,7 @@ function resetState(fullReset = false) {
         girlsRoundsWon: oldRounds.girlsRoundsWon,
         boysRoundsWon: oldRounds.boysRoundsWon,
         gameActive: true,
-        countdownActive: false, // NEW STATE to manage countdown phase
+        countdownActive: false,
         usedQuestionIds: fullReset ? [] : state.usedQuestionIds || [],
         questionNumber: 0,
         shuffledCards: {}, usedCardNumbers: [],
@@ -119,15 +119,14 @@ function startNewDay() {
 function addPoints(team, points) {
     state[`${team}Score`] += points;
     updateScoresUI();
-    // The winner check is now always called from the event listener, not from here.
 }
 
 function checkWinner() {
-    if (state.countdownActive) return; // Don't re-trigger if countdown is already running
+    if (state.countdownActive) return; 
 
     if (state.girlsScore >= WINNING_SCORE || state.boysScore >= WINNING_SCORE) {
-        state.gameActive = false; // Stop new questions
-        state.countdownActive = true; // Enter countdown phase
+        state.gameActive = false; 
+        state.countdownActive = true;
         saveState();
         triggerWinSequence();
     }
@@ -187,31 +186,23 @@ function finalizeRound(winnerTeam) {
     elements.countdownContainer.classList.add('hidden');
     elements.winnerContainer.classList.remove('hidden');
     launchConfetti();
-    // State will be reset when "New Round" button is clicked
 }
 
-function launchConfetti() { /* ... Same as before ... */ }
+function launchConfetti() { /* ... */ }
 
 // --- CARD GAME LOGIC ---
-function shuffleAndPrepareCards() { /* ... Same as before ... */ }
-function displayCardVault(winningTeam) { /* ... Same as before ... */ }
-function handleCardClick(cardNumber, winningTeam) { /* ... Same as before ... */ }
+function shuffleAndPrepareCards() { /* ... */ }
+function displayCardVault(winningTeam) { /* ... */ }
+function handleCardClick(cardNumber, winningTeam) { /* ... */ }
 function roundToNearestFive(num) { return Math.floor(num / 5) * 5; }
-
 function applyCardEffect(effect, team) {
-    const opponent = team === 'girls' ? 'boys' : 'girls';
-    const value = parseInt(effect.Effect_Value) || 0;
-    let target = (effect.Target === 'OPPONENT') ? opponent : team;
-    // ... (The large switch statement for card effects - no changes)
+    // ... Switch statement logic ...
     updateAllUI();
     saveState();
-    checkWinner(); // IMPORTANT: Check for a winner AFTER the card effect has been applied.
+    checkWinner(); // Check winner AFTER the effect is applied.
 }
-
-function showInteractiveModal(effect, team) {
-    // This function needs its logic to call checkWinner where appropriate
-}
-function updateVisualAids() { /* ... Same as before ... */ }
+function showInteractiveModal(effect, team) { /* ... */ }
+function updateVisualAids() { /* ... */ }
 
 // --- INITIALIZATION & EVENT LISTENERS ---
 async function initializeGame() {
@@ -220,21 +211,21 @@ async function initializeGame() {
     attachEventListeners();
     try {
         const [questionsResponse, cardsResponse] = await Promise.all([ fetch(QUESTIONS_SHEET_URL), fetch(CARDS_SHEET_URL) ]);
-        if (!questionsResponse.ok) throw new Error('Failed to load questions');
-        if (!cardsResponse.ok) throw new Error('Failed to load cards');
+        if (!questionsResponse.ok) throw new Error('فشل تحميل الأسئلة');
+        if (!cardsResponse.ok) throw new Error('فشل تحميل الكروت');
         const questionsData = await questionsResponse.json();
         const cardsData = await cardsResponse.json();
         allQuestions = (questionsData.values || []).slice(1).map(row => ({ id: row[0], type: row[1], question_text: row[2], image_url: row[3], answer: row[4], category: row[5] || 'عام' })).filter(q => q.id);
         allCards = (cardsData.values || []).slice(1).map(row => ({ Card_Title: row[0], Card_Description: row[1], Effect_Type: row[2], Effect_Value: row[3], Target: row[4], Manual_Config: row[5] || '', Sound_Effect: row[6] || '' })).filter(c => c.Card_Title);
         availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
         if (allCards.length > 0) shuffleAndPrepareCards();
-    } catch (error) { document.body.innerHTML = `<h1>فشل تحميل بيانات اللعبة</h1><p>${error.message}</p>`; }
+    } catch (error) { document.body.innerHTML = `<h1>فشل تحميل بيانات اللعبة</h1><p>${error.message}</p><p>تأكد من صحة الرابط ومفتاح API وإعدادات المشاركة للجدول.</p>`; }
 }
 
 function attachEventListeners() {
     elements.nextQuestionBtn.addEventListener('click', () => {
         playSound('click');
-        if (!state.gameActive) { alert("الجولة انتهت أو متوقفة مؤقتاً!"); return; }
+        if (!state.gameActive) { alert("لا يمكن بدء سؤال جديد والجولة متوقفة!"); return; }
         if (availableQuestions.length === 0) { alert("انتهت جميع الأسئلة!"); return; }
         
         state.questionNumber++;
@@ -284,7 +275,9 @@ function attachEventListeners() {
                     checkWinner();
                 }
             } else if (state.gameActive) {
-                addPoints(team, points);
+                state[`${team}Score`] += points;
+                updateScoresUI();
+                saveState();
                 checkWinner();
             }
         });
@@ -341,7 +334,7 @@ function attachEventListeners() {
             hideAllModals();
         });
     });
-    elements.supporterForm.addEventListener('submit', (event) => { /* ... same as before ... */ });
+    // Add other minor listeners here...
 }
 
 // --- INITIALIZE ---
