@@ -33,7 +33,7 @@ const elements = {
     boysStatusIcons: document.getElementById('boys-status-icons'), settleRoundBtn: document.getElementById('settle-round-btn'),
     questionModal: document.getElementById('question-modal'), modalQuestionArea: document.getElementById('modal-question-area'),
     modalAnswerArea: document.getElementById('modal-answer-area'), toggleAnswerBtn: document.getElementById('toggle-answer-btn'),
-    questionAwardButtons: document.querySelectorAll('#question-modal .award-btn'), // FIX: More specific selector
+    questionAwardButtons: document.querySelectorAll('#question-modal .award-btn'),
     celebrationOverlay: document.getElementById('celebration-overlay'), countdownContainer: document.getElementById('countdown-container'),
     countdownText: document.getElementById('countdown-text'), winnerContainer: document.getElementById('winner-container'),
     countdownTimer: document.getElementById('countdown-timer'), winnerNameElement: document.getElementById('winner-name'),
@@ -181,11 +181,19 @@ function roundToNearestFive(num) { return Math.round(num / 5) * 5; }
 
 function applyCardEffect(effect, team) {
     const opponent = team === 'girls' ? 'boys' : 'girls';
+    let effectApplied = true;
     let isNegative = ['SUBTRACT_POINTS', 'RESET_SCORE', 'HALVE_SCORE', 'REVERSE_CHARITY'].includes(effect.Effect_Type);
+
+    if (isNegative && state.veto[team]) {
+        if (confirm(`فريق ${team === 'girls' ? 'البنات' : 'الشباب'} يمتلك الفيتو! هل تريد استخدامه لإلغاء هذا الحكم؟`)) {
+            state.veto[team] = false; playSound('positive_effect'); updateAllUI(); saveState(); return;
+        }
+    }
+
     if (effect.Sound_Effect) playSound(effect.Sound_Effect);
     else if (isNegative) playSound('negative_effect');
     else playSound('positive_effect');
-
+    
     const value = parseInt(effect.Effect_Value) || 0;
     let target = effect.Target === 'OPPONENT' ? opponent : team;
 
@@ -198,24 +206,68 @@ function applyCardEffect(effect, team) {
         case 'EQUALIZE_SCORES': const avg = roundToNearestFive((state.girlsScore + state.boysScore) / 2); state.girlsScore = avg; state.boysScore = avg; break;
         case 'HALVE_SCORE': state[`${target}Score`] = roundToNearestFive(state[`${target}Score`] / 2); break;
         case 'SET_SCORE': state[`${target}Score`] = value; break;
-        case 'CHARITY': 
-            const higherTeam = state.girlsScore > state.boysScore ? 'girls' : 'boys';
-            const lowerTeam = higherTeam === 'girls' ? 'boys' : 'girls';
-            if (higherTeam !== lowerTeam) {
-                const charityAmount = roundToNearestFive(state[`${higherTeam}Score`] / 2);
-                addPoints(higherTeam, -charityAmount);
-                addPoints(lowerTeam, charityAmount);
-            }
-            break;
+        case 'IMMUNITY': if (!state.activeEffects[target]) state.activeEffects[target] = {}; state.activeEffects[target].immunity = value; break;
+        case 'FREEZE_OPPONENT': if (!state.activeEffects[opponent]) state.activeEffects[opponent] = {}; state.activeEffects[opponent].freeze = value; break;
+        case 'DOUBLE_NEXT_Q': if (!state.activeEffects[target]) state.activeEffects[target] = {}; state.activeEffects[target].double_next_q = value; break;
+        case 'GRANT_VETO': state.veto[target] = true; break;
+        case 'MANUAL_EFFECT': showInteractiveModal(effect, team); effectApplied = false; break;
         case 'NO_EFFECT': break;
         default: console.warn('Unknown effect type:', effect.Effect_Type); break;
     }
-    updateAllUI();
-    saveState();
+    if (effectApplied) {
+        updateAllUI();
+        saveState();
+    }
 }
 
-function updateVisualAids() { /* ... Your full updateVisualAids logic ... */ }
-function showInteractiveModal(effect, team) { /* ... Your full showInteractiveModal logic ... */ }
+function updateVisualAids() {
+    ['girls', 'boys'].forEach(team => {
+        const container = elements[`${team}StatusIcons`];
+        if (!container) return;
+        container.innerHTML = '';
+        const effects = state.activeEffects[team] || {};
+        if (state.veto[team]) container.innerHTML += `<div class="status-icon" title="فيتو">⚖️</div>`;
+        if (effects.freeze > 0) container.innerHTML += `<div class="status-icon" title="تجميد (${effects.freeze} دور)">❄️<span>${effects.freeze}</span></div>`;
+        if (effects.immunity > 0) container.innerHTML += `<div class="status-icon" title="حصانة (${effects.immunity} دور)">🛡️<span>${effects.immunity}</span></div>`;
+        if (effects.double_next_q > 0) container.innerHTML += `<div class="status-icon" title="نقاط مضاعفة للسؤال القادم">x2</div>`;
+    });
+}
+
+function showInteractiveModal(effect, team) {
+    hideAllModals();
+    elements.interactiveTitle.textContent = effect.Card_Title;
+    elements.interactiveDescription.textContent = effect.Card_Description;
+    elements.interactiveButtons.innerHTML = '';
+    elements.interactiveInputArea.classList.add('hidden');
+    
+    const config = effect.Manual_Config || '';
+    if (config.startsWith('task')) {
+        const successBtn = document.createElement('button');
+        successBtn.textContent = `نجح (+${effect.Effect_Value})`;
+        successBtn.onclick = () => { addPoints(team, parseInt(effect.Effect_Value)); hideModal(elements.interactiveModal); };
+        const failBtn = document.createElement('button');
+        failBtn.textContent = 'فشل';
+        failBtn.onclick = () => hideModal(elements.interactiveModal);
+        elements.interactiveButtons.append(successBtn, failBtn);
+    } else if (config.startsWith('manual')) {
+        elements.interactiveInputArea.classList.remove('hidden');
+        elements.manualPointsInput.value = '';
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'تأكيد';
+        confirmBtn.onclick = () => {
+            const points = parseInt(elements.manualPointsInput.value) || 0;
+            addPoints(team, points);
+            hideModal(elements.interactiveModal);
+        };
+        elements.interactiveButtons.append(confirmBtn);
+    } else {
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'تم';
+        closeBtn.onclick = () => hideModal(elements.interactiveModal);
+        elements.interactiveButtons.append(closeBtn);
+    }
+    showModal(elements.interactiveModal);
+}
 
 async function initializeGame() {
     loadState();
@@ -277,6 +329,7 @@ function attachEventListeners() {
 
     if (elements.roundControls) elements.roundControls.forEach(button => {
         button.addEventListener('click', e => {
+            playSound('click');
             const team = e.target.dataset.team;
             const isAdd = e.target.classList.contains('add-round-btn');
             if (isAdd) {
