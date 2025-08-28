@@ -342,6 +342,7 @@ function attachEventListeners() {
         if (!state.gameActive) { alert("الجولة متوقفة حالياً!"); return; }
         if (availableQuestions.length === 0) { alert("انتهت جميع الأسئلة!"); return; }
         
+        // Decrement active effects timers
         ['girls', 'boys'].forEach(team => {
             if (state.activeEffects[team]) {
                 for (const effect in state.activeEffects[team]) {
@@ -373,25 +374,7 @@ function attachEventListeners() {
             playSound('point');
             hideModal(elements.questionModal);
             
-            let pointsFromQuestion = QUESTION_POINTS;
-            // Apply bonuses before adding points
-            if (state.activeEffects[winningTeam]?.sabotage > 0) pointsFromQuestion = Math.round(pointsFromQuestion / 2);
-            if (state.activeEffects.girls?.inflation > 0) pointsFromQuestion *= 2;
-            if (state.activeEffects[winningTeam]?.double_next_q > 0) { pointsFromQuestion *= 2; state.activeEffects[winningTeam].double_next_q = 0; }
-            if (state.activeEffects[winningTeam]?.golden_goose > 0) pointsFromQuestion += 10;
-            if (state.activeEffects[winningTeam]?.winning_streak > 0) { pointsFromQuestion += 10 * state.activeEffects[winningTeam].winning_streak; state.activeEffects[winningTeam].winning_streak++; }
-            
-            const opponent = winningTeam === 'girls' ? 'boys' : 'girls';
-            if (state.activeEffects[opponent]?.winning_streak > 0) state.activeEffects[opponent].winning_streak = 0;
-            if (state.activeEffects[opponent]?.leech > 0) { state[`${opponent}Score`] += roundToNearestFive(pointsFromQuestion / 2); }
-            if (state.activeEffects[winningTeam]?.taxes > 0) {
-                const taxAmount = roundToNearestFive(pointsFromQuestion * 0.25);
-                state[`${winningTeam}Score`] += (pointsFromQuestion - taxAmount);
-                state[`${opponent}Score`] += taxAmount;
-            } else {
-                 state[`${winningTeam}Score`] += pointsFromQuestion;
-            }
-
+            state[`${winningTeam}Score`] += QUESTION_POINTS;
             updateAllUI();
             
             if (state.questionNumber % 2 === 0) {
@@ -454,11 +437,54 @@ function attachEventListeners() {
         });
     });
     
-    elements.addSupporterBtn.addEventListener('click', () => showModal(elements.supporterModal));
+    // ===== الكود المفقود الذي تم إصلاحه وإضافته =====
+    elements.addSupporterBtn.addEventListener('click', () => {
+        playSound('click');
+        showModal(elements.supporterModal);
+    });
+
+    elements.supporterForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const supporterName = document.getElementById('supporter-name').value;
+        const supporterPhotoInput = document.getElementById('supporter-photo');
+        const selectedTeam = document.querySelector('input[name="team"]:checked').value;
+        
+        if (supporterPhotoInput.files && supporterPhotoInput.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const photoDataUrl = e.target.result;
+                // Add supporter to the list in the UI
+                const list = selectedTeam === 'girls' ? elements.girlsSupportersList : elements.boysSupportersList;
+                const supporterCard = document.createElement('div');
+                supporterCard.className = 'supporter-card';
+                supporterCard.innerHTML = `<img src="${photoDataUrl}" alt="${supporterName}"><p>👑 ${supporterName}</p>`;
+                list.appendChild(supporterCard);
+                
+                // Show the pop-up announcement
+                elements.announcementPhoto.src = photoDataUrl;
+                elements.announcementText.innerHTML = `🛡️ ${supporterName}<br>ينضم كدرع لفريق ${selectedTeam === 'girls' ? 'البنات' : 'الشباب'}!`;
+                
+                playSound('supporter');
+                elements.supporterAnnouncement.classList.remove('hidden');
+                elements.supporterAnnouncement.classList.add('show');
+
+                setTimeout(() => {
+                    elements.supporterAnnouncement.classList.remove('show');
+                    setTimeout(() => elements.supporterAnnouncement.classList.add('hidden'), 500);
+                }, 5500);
+            };
+            reader.readAsDataURL(supporterPhotoInput.files[0]);
+        }
+        elements.supporterForm.reset();
+        hideModal(elements.supporterModal);
+    });
+    // =================================================
+
     elements.resetRoundBtn.addEventListener('click', startNewRound);
     elements.newRoundBtnCelebration.addEventListener('click', startNewRound);
     elements.newDayBtn.addEventListener('click', startNewDay);
     elements.allCloseButtons.forEach(btn => btn.addEventListener('click', () => hideAllModals()));
+    elements.toggleAnswerBtn.addEventListener('click', () => elements.modalAnswerArea.classList.toggle('hidden'));
 }
 
 // --- INITIALIZE ---
