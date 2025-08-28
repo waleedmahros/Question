@@ -47,7 +47,14 @@ header h1 { font-size: 2.8em; font-weight: 900; margin: 0 0 5px 0; background: l
 .team-score-card h2 { font-size: 1.7em; margin: 0; text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
 #girls-card h2 { color: var(--girls-color); }
 #boys-card h2 { color: var(--boys-color); }
-.card-main-content { display: flex; align-items: center; justify-content: space-between; padding: 0 10px; flex-grow: 1; gap: 0; }
+.card-main-content {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Changed to center */
+    padding: 0 5px;          /* Reduced padding */
+    flex-grow: 1;
+    gap: 10px;               /* Added a smaller gap */
+}
 .team-avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 .score { font-size: clamp(3em, 12vw, 3.8em); font-weight: 900; color: var(--gold-color); animation: pulse 3s infinite ease-in-out; text-align: center; flex-grow: 1; padding: 0 5px; }
 .manual-controls { display: flex; gap: 15px; justify-content: center; }
