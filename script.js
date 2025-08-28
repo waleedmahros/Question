@@ -116,11 +116,6 @@ function startNewDay() {
     }
 }
 
-function addPoints(team, points) {
-    state[`${team}Score`] += points;
-    updateScoresUI();
-}
-
 function checkWinner() {
     if (state.countdownActive) return; 
 
@@ -193,14 +188,38 @@ function launchConfetti() { /* ... */ }
 // --- CARD GAME LOGIC ---
 function shuffleAndPrepareCards() { /* ... */ }
 function displayCardVault(winningTeam) { /* ... */ }
-function handleCardClick(cardNumber, winningTeam) { /* ... */ }
+function handleCardClick(cardNumber, winningTeam) {
+    if (state.usedCardNumbers.includes(cardNumber)) return;
+    playSound('card_reveal');
+    const effect = state.shuffledCards[cardNumber];
+    
+    elements.revealCardTitle.textContent = effect.Card_Title;
+    elements.revealCardDescription.textContent = effect.Card_Description;
+    
+    elements.revealCardConfirmBtn.onclick = () => {
+        state.usedCardNumbers.push(cardNumber);
+        hideModal(elements.revealCardModal, false);
+        applyCardEffect(effect, winningTeam);
+    };
+
+    hideModal(elements.cardVaultModal, false);
+    showModal(elements.revealCardModal);
+}
 function roundToNearestFive(num) { return Math.floor(num / 5) * 5; }
+
 function applyCardEffect(effect, team) {
-    // ... Switch statement logic ...
+    const opponent = team === 'girls' ? 'boys' : 'girls';
+    const value = parseInt(effect.Effect_Value) || 0;
+    let target = (effect.Target === 'OPPONENT') ? opponent : team;
+    let effectApplied = true;
+
+    // ... (The large switch statement for card effects - logic is stable)
+    
     updateAllUI();
     saveState();
-    checkWinner(); // Check winner AFTER the effect is applied.
+    checkWinner(); // IMPORTANT: Check for a winner AFTER the card effect has been applied.
 }
+
 function showInteractiveModal(effect, team) { /* ... */ }
 function updateVisualAids() { /* ... */ }
 
@@ -211,8 +230,8 @@ async function initializeGame() {
     attachEventListeners();
     try {
         const [questionsResponse, cardsResponse] = await Promise.all([ fetch(QUESTIONS_SHEET_URL), fetch(CARDS_SHEET_URL) ]);
-        if (!questionsResponse.ok) throw new Error('فشل تحميل الأسئلة');
-        if (!cardsResponse.ok) throw new Error('فشل تحميل الكروت');
+        if (!questionsResponse.ok) throw new Error('Failed to load questions');
+        if (!cardsResponse.ok) throw new Error('Failed to load cards');
         const questionsData = await questionsResponse.json();
         const cardsData = await cardsResponse.json();
         allQuestions = (questionsData.values || []).slice(1).map(row => ({ id: row[0], type: row[1], question_text: row[2], image_url: row[3], answer: row[4], category: row[5] || 'عام' })).filter(q => q.id);
@@ -225,7 +244,7 @@ async function initializeGame() {
 function attachEventListeners() {
     elements.nextQuestionBtn.addEventListener('click', () => {
         playSound('click');
-        if (!state.gameActive) { alert("لا يمكن بدء سؤال جديد والجولة متوقفة!"); return; }
+        if (!state.gameActive) { alert("الجولة متوقفة حالياً!"); return; }
         if (availableQuestions.length === 0) { alert("انتهت جميع الأسئلة!"); return; }
         
         state.questionNumber++;
@@ -250,7 +269,8 @@ function attachEventListeners() {
             playSound('point');
             hideModal(elements.questionModal, false);
             
-            addPoints(winningTeam, QUESTION_POINTS);
+            state[`${winningTeam}Score`] += QUESTION_POINTS;
+            updateAllUI();
             
             if (state.questionNumber % 2 === 0) {
                 displayCardVault(winningTeam);
@@ -267,19 +287,13 @@ function attachEventListeners() {
             const action = e.target.dataset.action;
             const points = action === 'add' ? MANUAL_POINTS_STEP : -MANUAL_POINTS_STEP;
             
-            if (state.countdownActive) {
-                state[`${team}Score`] += points;
-                updateScoresUI();
-                saveState();
-                if (action === 'add') {
-                    checkWinner();
-                }
-            } else if (state.gameActive) {
-                state[`${team}Score`] += points;
-                updateScoresUI();
-                saveState();
+            state[`${team}Score`] += points;
+            updateScoresUI();
+
+            if(action === 'add') {
                 checkWinner();
             }
+            saveState();
         });
     });
 
@@ -339,3 +353,4 @@ function attachEventListeners() {
 
 // --- INITIALIZE ---
 initializeGame();
+
