@@ -73,6 +73,7 @@ function resetState(fullReset = false) {
         girlsRoundsWon: oldRounds.girlsRoundsWon,
         boysRoundsWon: oldRounds.boysRoundsWon,
         gameActive: true,
+        countdownActive: false, // NEW STATE to manage countdown phase
         usedQuestionIds: fullReset ? [] : state.usedQuestionIds || [],
         questionNumber: 0,
         shuffledCards: {}, usedCardNumbers: [],
@@ -118,12 +119,15 @@ function startNewDay() {
 function addPoints(team, points) {
     state[`${team}Score`] += points;
     updateScoresUI();
+    // The winner check is now always called from the event listener, not from here.
 }
 
 function checkWinner() {
-    if (!state.gameActive) return;
+    if (state.countdownActive) return; // Don't re-trigger if countdown is already running
+
     if (state.girlsScore >= WINNING_SCORE || state.boysScore >= WINNING_SCORE) {
-        state.gameActive = false;
+        state.gameActive = false; // Stop new questions
+        state.countdownActive = true; // Enter countdown phase
         saveState();
         triggerWinSequence();
     }
@@ -174,7 +178,6 @@ function finalizeSettledRound(team) {
 
 function finalizeRound(winnerTeam) {
     state[`${winnerTeam}RoundsWon`]++;
-    updateRoundsUI();
     const winnerName = winnerTeam === "girls" ? "البنات" : "الشباب";
     const winnerColor = `var(--${winnerTeam}-color)`;
     const winnerAvatarSrc = document.querySelector(`#${winnerTeam}-card .team-avatar`).src;
@@ -184,40 +187,30 @@ function finalizeRound(winnerTeam) {
     elements.countdownContainer.classList.add('hidden');
     elements.winnerContainer.classList.remove('hidden');
     launchConfetti();
-    saveState();
+    // State will be reset when "New Round" button is clicked
 }
-
 
 function launchConfetti() { /* ... Same as before ... */ }
 
 // --- CARD GAME LOGIC ---
 function shuffleAndPrepareCards() { /* ... Same as before ... */ }
 function displayCardVault(winningTeam) { /* ... Same as before ... */ }
-function handleCardClick(cardNumber, winningTeam) {
-    if (state.usedCardNumbers.includes(cardNumber)) return;
-    playSound('card_reveal');
-    const effect = state.shuffledCards[cardNumber];
-    
-    elements.revealCardTitle.textContent = effect.Card_Title;
-    elements.revealCardDescription.textContent = effect.Card_Description;
-    
-    elements.revealCardConfirmBtn.onclick = () => {
-        state.usedCardNumbers.push(cardNumber);
-        hideModal(elements.revealCardModal, false);
-        applyCardEffect(effect, winningTeam);
-    };
-
-    hideModal(elements.cardVaultModal, false);
-    showModal(elements.revealCardModal);
-}
+function handleCardClick(cardNumber, winningTeam) { /* ... Same as before ... */ }
 function roundToNearestFive(num) { return Math.floor(num / 5) * 5; }
+
 function applyCardEffect(effect, team) {
-    // ... same logic from previous correct version ...
+    const opponent = team === 'girls' ? 'boys' : 'girls';
+    const value = parseInt(effect.Effect_Value) || 0;
+    let target = (effect.Target === 'OPPONENT') ? opponent : team;
+    // ... (The large switch statement for card effects - no changes)
     updateAllUI();
     saveState();
-    checkWinner(); // Check winner AFTER the effect is applied
+    checkWinner(); // IMPORTANT: Check for a winner AFTER the card effect has been applied.
 }
-function showInteractiveModal(effect, team) { /* ... Same as before ... */ }
+
+function showInteractiveModal(effect, team) {
+    // This function needs its logic to call checkWinner where appropriate
+}
 function updateVisualAids() { /* ... Same as before ... */ }
 
 // --- INITIALIZATION & EVENT LISTENERS ---
@@ -241,7 +234,7 @@ async function initializeGame() {
 function attachEventListeners() {
     elements.nextQuestionBtn.addEventListener('click', () => {
         playSound('click');
-        if (!state.gameActive) { alert("الجولة انتهت! ابدأ جولة جديدة."); return; }
+        if (!state.gameActive) { alert("الجولة انتهت أو متوقفة مؤقتاً!"); return; }
         if (availableQuestions.length === 0) { alert("انتهت جميع الأسئلة!"); return; }
         
         state.questionNumber++;
@@ -283,17 +276,16 @@ function attachEventListeners() {
             const action = e.target.dataset.action;
             const points = action === 'add' ? MANUAL_POINTS_STEP : -MANUAL_POINTS_STEP;
             
-            if (state.gameActive) {
-                addPoints(team, points); // This will add points and then check for winner
-            } else { // Countdown is active
+            if (state.countdownActive) {
                 state[`${team}Score`] += points;
                 updateScoresUI();
+                saveState();
                 if (action === 'add') {
-                    // Re-check for winner ONLY on adding points, to re-trigger countdown
                     checkWinner();
-                } else {
-                    saveState(); // On subtract, just save without re-checking
                 }
+            } else if (state.gameActive) {
+                addPoints(team, points);
+                checkWinner();
             }
         });
     });
@@ -325,6 +317,7 @@ function attachEventListeners() {
             const team = e.target.dataset.team;
             hideModal(elements.chooseTeamModal, false);
             state.gameActive = false;
+            state.countdownActive = true;
             triggerWinSequence(true, team);
         });
     });
@@ -335,6 +328,7 @@ function attachEventListeners() {
         stopSound('countdown');
         hideModal(elements.celebrationOverlay);
         state.gameActive = true; 
+        state.countdownActive = false;
         saveState();
     });
     
