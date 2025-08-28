@@ -71,14 +71,11 @@ function resetState(fullReset = false) {
     state = {
         girlsScore: 0, boysScore: 0,
         girlsRoundsWon: oldRounds.girlsRoundsWon, boysRoundsWon: oldRounds.boysRoundsWon,
-        gameActive: true,
-        countdownActive: false,
+        gameActive: true, countdownActive: false,
         usedQuestionIds: fullReset ? [] : state.usedQuestionIds || [],
-        questionNumber: 0,
-        shuffledCards: {}, usedCardNumbers: [],
+        questionNumber: 0, shuffledCards: {}, usedCardNumbers: [],
         activeEffects: { girls: {}, boys: {} },
-        veto: { girls: false, boys: false },
-        lastNegativeEffect: null
+        veto: { girls: false, boys: false }, lastNegativeEffect: null
     };
 }
 
@@ -97,29 +94,13 @@ function hideAllModals() {
 }
 
 // --- CORE GAME LOGIC ---
-function startNewRound() {
-    playSound('click');
-    resetState(false);
-    if(allCards.length > 0) shuffleAndPrepareCards();
-    updateAllUI();
-    hideModal(elements.celebrationOverlay);
-    saveState();
-}
-
-function startNewDay() {
-    playSound('click');
-    if (confirm("هل أنت متأكد أنك تريد بدء يوم جديد؟ سيتم مسح كل شيء.")) {
-        localStorage.removeItem('ronyGamesV2');
-        resetState(true);
-        location.reload();
-    }
-}
+function startNewRound() { playSound('click'); resetState(false); if (allCards.length > 0) shuffleAndPrepareCards(); updateAllUI(); hideModal(elements.celebrationOverlay); saveState(); }
+function startNewDay() { playSound('click'); if (confirm("هل أنت متأكد؟ سيتم مسح كل شيء.")) { localStorage.removeItem('ronyGamesV2'); resetState(true); location.reload(); } }
 
 function checkWinner() {
     if (state.countdownActive || !state.gameActive) return;
     if (state.girlsScore >= WINNING_SCORE || state.boysScore >= WINNING_SCORE) {
-        state.gameActive = false;
-        state.countdownActive = true;
+        state.gameActive = false; state.countdownActive = true;
         saveState();
         triggerWinSequence();
     }
@@ -129,26 +110,17 @@ function triggerWinSequence(isSettled = false, settledTeam = null) {
     showModal(elements.celebrationOverlay, false);
     elements.winnerContainer.classList.add('hidden');
     elements.countdownContainer.classList.remove('hidden');
-    if (isSettled) {
-        const teamName = settledTeam === 'girls' ? 'البنات' : 'الشباب';
-        elements.countdownText.textContent = `سيتم حسم الجولة لصالح فريق ${teamName}!`;
-    } else {
-        elements.countdownText.textContent = 'فرصة أخيرة لدعم الفريق!';
-    }
+    elements.countdownText.textContent = isSettled ? `سيتم حسم الجولة لصالح فريق ${settledTeam === 'girls' ? 'البنات' : 'الشباب'}!` : 'فرصة أخيرة لدعم الفريق!';
     playSound('countdown');
-    let countdown = 30;
-    elements.countdownTimer.textContent = countdown;
+    let count = 30;
+    elements.countdownTimer.textContent = count;
     countdownInterval = setInterval(() => {
-        countdown--;
-        elements.countdownTimer.textContent = countdown;
-        if (countdown <= 0) {
+        count--;
+        elements.countdownTimer.textContent = count;
+        if (count <= 0) {
             clearInterval(countdownInterval);
             stopSound('countdown');
-            if(isSettled) {
-                finalizeRound(settledTeam);
-            } else {
-                showWinner();
-            }
+            isSettled ? finalizeRound(settledTeam) : showWinner();
         }
     }, 1000);
 }
@@ -162,11 +134,8 @@ function finalizeRound(winnerTeam) {
     playSound('win');
     state[`${winnerTeam}RoundsWon`]++;
     const winnerName = winnerTeam === "girls" ? "البنات" : "الشباب";
-    const winnerColor = `var(--${winnerTeam}-color)`;
-    const winnerAvatarSrc = document.querySelector(`#${winnerTeam}-card .team-avatar`).src;
     elements.winnerNameElement.textContent = winnerName;
-    elements.winnerNameElement.style.color = winnerColor;
-    elements.winnerAvatar.src = winnerAvatarSrc;
+    elements.winnerAvatar.src = document.querySelector(`#${winnerTeam}-card .team-avatar`).src;
     elements.countdownContainer.classList.add('hidden');
     elements.winnerContainer.classList.remove('hidden');
     launchConfetti();
@@ -176,7 +145,7 @@ function launchConfetti() { /* ... */ }
 
 // --- CARD GAME LOGIC ---
 function shuffleAndPrepareCards() { let s = [...allCards].sort(() => 0.5 - Math.random()); state.shuffledCards = {}; for (let i = 0; i < s.length; i++) { state.shuffledCards[i + 1] = s[i]; } state.usedCardNumbers = []; }
-function displayCardVault(winningTeam) { if (!elements.cardVaultModal || allCards.length === 0) return; hideAllModals(); elements.cardGrid.innerHTML = ''; for (let i = 1; i <= allCards.length; i++) { const c = document.createElement('button'); c.className = 'card-button'; c.textContent = i; if (state.usedCardNumbers.includes(i)) { c.classList.add('used'); c.disabled = true; } c.addEventListener('click', () => handleCardClick(i, winningTeam)); elements.cardGrid.appendChild(c); } showModal(elements.cardVaultModal); }
+function displayCardVault(winningTeam) { if (!elements.cardVaultModal || allCards.length === 0) { checkWinner(); return; } hideAllModals(); elements.cardGrid.innerHTML = ''; for (let i = 1; i <= allCards.length; i++) { const c = document.createElement('button'); c.className = 'card-button'; c.textContent = i; if (state.usedCardNumbers.includes(i)) { c.classList.add('used'); c.disabled = true; } c.addEventListener('click', () => handleCardClick(i, winningTeam)); elements.cardGrid.appendChild(c); } showModal(elements.cardVaultModal); }
 function handleCardClick(cardNumber, winningTeam) {
     if (state.usedCardNumbers.includes(cardNumber)) return;
     playSound('card_reveal');
@@ -198,29 +167,24 @@ function applyCardEffect(effect, team) {
     const opponent = team === 'girls' ? 'boys' : 'girls';
     const value = parseInt(effect.Effect_Value) || 0;
     let target = effect.Target === 'OPPONENT' ? opponent : team;
-    let effectApplied = true;
 
     if (effect.Sound_Effect) playSound(effect.Sound_Effect);
     else if (['SUBTRACT_POINTS', 'RESET_SCORE'].includes(effect.Effect_Type)) playSound('negative_effect');
     else playSound('positive_effect');
 
+    // --- Apply actual effect ---
     switch (effect.Effect_Type) {
         case 'ADD_POINTS':
             if (effect.Target === 'BOTH') { state.girlsScore += value; state.boysScore += value; } 
             else { state[`${target}Score`] += value; }
             break;
         case 'SUBTRACT_POINTS': state[`${target}Score`] -= value; break;
-        // ... ALL other card effect cases from our table ...
-        // This is a simplified version, the full version would have all cases
-        default:
-             console.log("Applying effect: ", effect.Effect_Type);
+        // ... (All other card effects from our discussions go here)
     }
     
-    if (effectApplied) {
-        updateAllUI();
-        saveState();
-        checkWinner(); // Check for a winner AFTER the effect has been applied.
-    }
+    updateAllUI();
+    saveState();
+    checkWinner(); // Check for winner AFTER the effect is applied.
 }
 
 function updateVisualAids() { /* ... */ }
@@ -233,15 +197,18 @@ async function initializeGame() {
     attachEventListeners();
     try {
         const [qRes, cRes] = await Promise.all([fetch(QUESTIONS_SHEET_URL), fetch(CARDS_SHEET_URL)]);
-        if (!qRes.ok || !cRes.ok) throw new Error('Network response was not ok');
+        if (!qRes.ok || !cRes.ok) throw new Error('Network error');
         const qData = await qRes.json();
         const cData = await cRes.json();
         allQuestions = (qData.values || []).slice(1).map(row => ({ id: row[0], type: row[1], question_text: row[2], image_url: row[3], answer: row[4], category: row[5] || 'عام' })).filter(q => q.id);
         allCards = (cData.values || []).slice(1).map(row => ({ Card_Title: row[0], Card_Description: row[1], Effect_Type: row[2], Effect_Value: row[3], Target: row[4], Manual_Config: row[5] || '', Sound_Effect: row[6] || '' })).filter(c => c.Card_Title);
         availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
-        if (allCards.length > 0) shuffleAndPrepareCards();
-        else { console.error("No cards were loaded from the Google Sheet."); }
-    } catch (error) { document.body.innerHTML = `<h1>فشل تحميل بيانات اللعبة</h1><p>${error.message}</p><p>تأكد من صحة الرابط ومفتاح API وإعدادات المشاركة للجدول.</p>`; }
+        if (allCards.length > 0) {
+            shuffleAndPrepareCards();
+        } else {
+            console.error("CRITICAL: No cards were loaded. Check Sheet name ('cards'), sharing settings, and API key.");
+        }
+    } catch (error) { document.body.innerHTML = `<h1>فشل تحميل بيانات اللعبة</h1><p>${error.message}</p>`; }
 }
 
 function attachEventListeners() {
@@ -250,6 +217,17 @@ function attachEventListeners() {
         if (!state.gameActive) { alert("الجولة متوقفة حالياً!"); return; }
         if (availableQuestions.length === 0) { alert("انتهت جميع الأسئلة!"); return; }
         
+        // **FIX**: Decrement active effects timers
+        ['girls', 'boys'].forEach(team => {
+            if (state.activeEffects[team]) {
+                for (const effect in state.activeEffects[team]) {
+                    if (state.activeEffects[team][effect] > 0) {
+                        state.activeEffects[team][effect]--;
+                    }
+                }
+            }
+        });
+
         state.questionNumber++;
         const randIdx = Math.floor(Math.random() * availableQuestions.length);
         const question = availableQuestions.splice(randIdx, 1)[0];
@@ -260,6 +238,7 @@ function attachEventListeners() {
         elements.modalAnswerArea.textContent = question.answer;
         elements.modalAnswerArea.classList.add('hidden');
         showModal(elements.questionModal);
+        updateVisualAids();
         saveState();
     });
 
@@ -338,7 +317,6 @@ function attachEventListeners() {
         });
     });
     
-    // Other listeners...
     elements.resetRoundBtn.addEventListener('click', startNewRound);
     elements.newRoundBtnCelebration.addEventListener('click', startNewRound);
     elements.newDayBtn.addEventListener('click', startNewDay);
