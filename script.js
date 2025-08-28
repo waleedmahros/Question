@@ -350,6 +350,19 @@ function attachEventListeners() {
     });
     // Add other minor listeners here...
 }
+function attachEventListeners() {
+    // ... all the event listener code ...
+}
+
+// --- INITIALIZE ---
+async function initializeGame() {
+    // ... all the initialization code ...
+    
+    // !!!!!!!!!!! أضف هذا السطر هنا !!!!!!!!!!!
+    alert(`تم تحميل ${allQuestions.length} سؤالاً و ${allCards.length} كارتاً بنجاح.`);
+}
+
+initializeGame();
 
 // --- INITIALIZE ---
 initializeGame();
