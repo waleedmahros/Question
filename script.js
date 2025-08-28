@@ -70,7 +70,8 @@ function resetState(fullReset = false) {
     const oldRounds = fullReset ? { girlsRoundsWon: 0, boysRoundsWon: 0 } : (state.girlsRoundsWon !== undefined ? { girlsRoundsWon: state.girlsRoundsWon, boysRoundsWon: state.boysRoundsWon } : { girlsRoundsWon: 0, boysRoundsWon: 0 });
     state = {
         girlsScore: 0, boysScore: 0,
-        girlsRoundsWon: oldRounds.girlsRoundsWon, boysRoundsWon: oldRounds.boysRoundsWon,
+        girlsRoundsWon: oldRounds.girlsRoundsWon,
+        boysRoundsWon: oldRounds.boysRoundsWon,
         gameActive: true,
         usedQuestionIds: fullReset ? [] : state.usedQuestionIds || [],
         questionNumber: 0,
@@ -183,6 +184,7 @@ function finalizeRound(winnerTeam) {
     elements.countdownContainer.classList.add('hidden');
     elements.winnerContainer.classList.remove('hidden');
     launchConfetti();
+    saveState();
 }
 
 
@@ -191,7 +193,23 @@ function launchConfetti() { /* ... Same as before ... */ }
 // --- CARD GAME LOGIC ---
 function shuffleAndPrepareCards() { /* ... Same as before ... */ }
 function displayCardVault(winningTeam) { /* ... Same as before ... */ }
-function handleCardClick(cardNumber, winningTeam) { /* ... Same as before ... */ }
+function handleCardClick(cardNumber, winningTeam) {
+    if (state.usedCardNumbers.includes(cardNumber)) return;
+    playSound('card_reveal');
+    const effect = state.shuffledCards[cardNumber];
+    
+    elements.revealCardTitle.textContent = effect.Card_Title;
+    elements.revealCardDescription.textContent = effect.Card_Description;
+    
+    elements.revealCardConfirmBtn.onclick = () => {
+        state.usedCardNumbers.push(cardNumber);
+        hideModal(elements.revealCardModal, false);
+        applyCardEffect(effect, winningTeam);
+    };
+
+    hideModal(elements.cardVaultModal, false);
+    showModal(elements.revealCardModal);
+}
 function roundToNearestFive(num) { return Math.floor(num / 5) * 5; }
 function applyCardEffect(effect, team) {
     // ... same logic from previous correct version ...
@@ -238,7 +256,7 @@ function attachEventListeners() {
         elements.modalAnswerArea.classList.add('hidden');
         elements.toggleAnswerBtn.textContent = "إظهار الإجابة";
         showModal(elements.questionModal);
-        updateVisualAids(); saveState();
+        saveState();
     });
 
     elements.awardButtons.forEach(button => {
@@ -247,7 +265,7 @@ function attachEventListeners() {
             const winningTeam = event.target.dataset.team;
             playSound('point');
             hideModal(elements.questionModal, false);
-
+            
             addPoints(winningTeam, QUESTION_POINTS);
             
             if (state.questionNumber % 2 === 0) {
@@ -266,14 +284,15 @@ function attachEventListeners() {
             const points = action === 'add' ? MANUAL_POINTS_STEP : -MANUAL_POINTS_STEP;
             
             if (state.gameActive) {
-                addPoints(team, points);
+                addPoints(team, points); // This will add points and then check for winner
             } else { // Countdown is active
+                state[`${team}Score`] += points;
+                updateScoresUI();
                 if (action === 'add') {
-                    addPoints(team, points); // This will call checkWinner
-                } else { // Subtract action
-                    state[`${team}Score`] += points; // Only subtract points
-                    updateScoresUI();
-                    saveState();
+                    // Re-check for winner ONLY on adding points, to re-trigger countdown
+                    checkWinner();
+                } else {
+                    saveState(); // On subtract, just save without re-checking
                 }
             }
         });
@@ -328,7 +347,7 @@ function attachEventListeners() {
             hideAllModals();
         });
     });
-    // Supporter form listener and other minor listeners
+    elements.supporterForm.addEventListener('submit', (event) => { /* ... same as before ... */ });
 }
 
 // --- INITIALIZE ---
