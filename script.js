@@ -98,6 +98,41 @@ function hideAllModals() {
 }
 
 // --- CORE GAME LOGIC ---
+
+// Merged addPoints function with countdown trigger
+function addPoints(team, points, isQuestion = false) {
+    if (state.countdownActive && points > 0) return;
+
+    const opponent = team === 'girls' ? 'boys' : 'girls';
+    let totalPointsToAdd = points;
+
+    if (isQuestion) {
+        if (state.activeEffects[team]?.double_next_q > 0) { totalPointsToAdd *= 2; state.activeEffects[team].double_next_q = 0; }
+        if (state.activeEffects.girls?.inflation > 0) { totalPointsToAdd *= 2; }
+        if (state.activeEffects[team]?.golden_goose > 0) { totalPointsToAdd += 10; }
+        if (state.activeEffects[team]?.winning_streak > 0) { totalPointsToAdd += (10 * state.activeEffects[team].winning_streak); state.activeEffects[team].winning_streak++; }
+        if (state.activeEffects[opponent]?.winning_streak > 0) { state.activeEffects[opponent].winning_streak = 0; }
+    }
+
+    if (totalPointsToAdd > 0 && state.activeEffects[team]?.freeze > 0) return;
+    if (totalPointsToAdd > 0 && state.activeEffects[team]?.sabotage > 0) { totalPointsToAdd = Math.floor(totalPointsToAdd / 2); }
+    
+    if (totalPointsToAdd > 0 && state.activeEffects[opponent]?.leech > 0) {
+        const leechPoints = roundToNearestFive(Math.floor(totalPointsToAdd / 2));
+        state[`${opponent}Score`] += leechPoints;
+    }
+    
+    const newScore = state[`${team}Score`] + totalPointsToAdd;
+    state[`${team}Score`] = newScore;
+    updateScoresUI();
+
+    if (newScore >= WINNING_SCORE && state.gameActive) {
+        checkWinner(); 
+    }
+
+    saveState();
+}
+
 function startNewRound() {
     playSound('click');
     resetState(false);
@@ -117,7 +152,7 @@ function startNewDay() {
 }
 
 function checkWinner() {
-    if (state.countdownActive) return; 
+    if (state.countdownActive || !state.gameActive) return; 
 
     if (state.girlsScore >= WINNING_SCORE || state.boysScore >= WINNING_SCORE) {
         state.gameActive = false; 
@@ -160,7 +195,7 @@ function triggerWinSequence(isSettled = false, settledTeam = null) {
 function showWinner() {
     stopSound('countdown');
     playSound('win');
-    const winnerTeam = state.girlsScore >= state.boysScore ? "girls" : "boys";
+    const winnerTeam = state.girlsScore > state.boysScore ? "girls" : "boys";
     finalizeRound(winnerTeam);
 }
 
@@ -180,14 +215,38 @@ function finalizeRound(winnerTeam) {
     elements.winnerAvatar.src = winnerAvatarSrc;
     elements.countdownContainer.classList.add('hidden');
     elements.winnerContainer.classList.remove('hidden');
-    launchConfetti();
+    // launchConfetti(); // You can add your confetti logic here
 }
 
-function launchConfetti() { /* ... */ }
-
 // --- CARD GAME LOGIC ---
-function shuffleAndPrepareCards() { /* ... */ }
-function displayCardVault(winningTeam) { /* ... */ }
+function shuffleAndPrepareCards() {
+    let shuffled = [...allCards].sort(() => 0.5 - Math.random());
+    state.shuffledCards = {};
+    for (let i = 0; i < shuffled.length; i++) {
+        state.shuffledCards[i + 1] = shuffled[i];
+    }
+    state.usedCardNumbers = [];
+}
+
+function displayCardVault(winningTeam) {
+    hideAllModals();
+    elements.cardGrid.innerHTML = '';
+    const totalCards = allCards.length;
+    for (let i = 1; i <= totalCards; i++) {
+        const cardButton = document.createElement('button');
+        cardButton.className = 'card-button';
+        cardButton.textContent = i;
+        cardButton.dataset.cardNumber = i;
+        if (state.usedCardNumbers.includes(i)) {
+            cardButton.classList.add('used');
+            cardButton.disabled = true;
+        }
+        cardButton.addEventListener('click', () => handleCardClick(i, winningTeam));
+        elements.cardGrid.appendChild(cardButton);
+    }
+    showModal(elements.cardVaultModal);
+}
+
 function handleCardClick(cardNumber, winningTeam) {
     if (state.usedCardNumbers.includes(cardNumber)) return;
     playSound('card_reveal');
@@ -198,6 +257,11 @@ function handleCardClick(cardNumber, winningTeam) {
     
     elements.revealCardConfirmBtn.onclick = () => {
         state.usedCardNumbers.push(cardNumber);
+        const cardButton = elements.cardGrid.querySelector(`[data-card-number='${cardNumber}']`);
+        if(cardButton) {
+            cardButton.classList.add('used');
+            cardButton.disabled = true;
+        }
         hideModal(elements.revealCardModal, false);
         applyCardEffect(effect, winningTeam);
     };
@@ -205,25 +269,125 @@ function handleCardClick(cardNumber, winningTeam) {
     hideModal(elements.cardVaultModal, false);
     showModal(elements.revealCardModal);
 }
-function roundToNearestFive(num) { return Math.floor(num / 5) * 5; }
+
+function roundToNearestFive(num) { return Math.round(num / 5) * 5; }
 
 function applyCardEffect(effect, team) {
     const opponent = team === 'girls' ? 'boys' : 'girls';
-    const value = parseInt(effect.Effect_Value) || 0;
-    let target = (effect.Target === 'OPPONENT') ? opponent : team;
     let effectApplied = true;
 
-    // ... (The large switch statement for card effects - logic is stable)
+    const isNegative = ['SUBTRACT_POINTS', 'RESET_SCORE', 'HALVE_SCORE', 'LOSE_QUARTER_SCORE', 'REVERSE_CHARITY', 'SUBTRACT_HALF_OPPONENT_SCORE'].includes(effect.Effect_Type);
+    if (isNegative && state.veto[team]) {
+        if (confirm(`فريق ${team === 'girls' ? 'البنات' : 'الشباب'} يمتلك الفيتو! هل تريد استخدامه لإلغاء هذا الحكم؟`)) {
+            state.veto[team] = false; playSound('positive_effect'); updateAllUI(); saveState(); return;
+        }
+    }
+
+    if (effect.Sound_Effect) { playSound(effect.Sound_Effect); }
+    else if(isNegative) { playSound('negative_effect'); } 
+    else { playSound('positive_effect'); }
     
-    updateAllUI();
-    saveState();
-    checkWinner(); // IMPORTANT: Check for a winner AFTER the card effect has been applied.
+    if(isNegative) { state.lastNegativeEffect = { effect, team }; }
+
+    const value = parseInt(effect.Effect_Value) || 0;
+    let target = team;
+    if (effect.Target === 'OPPONENT') target = opponent;
+
+    switch (effect.Effect_Type) {
+        case 'ADD_POINTS': addPoints(target, value); break;
+        case 'SUBTRACT_POINTS': addPoints(target, -value); break;
+        case 'STEAL_POINTS': addPoints(team, value); addPoints(opponent, -value); break;
+        case 'SWAP_SCORES': [state.girlsScore, state.boysScore] = [state.boysScore, state.girlsScore]; break;
+        case 'RESET_SCORE': state[`${target}Score`] = 0; break;
+        case 'EQUALIZE_SCORES': const total = state.girlsScore + state.boysScore; const avg = roundToNearestFive(Math.floor(total / 2)); state.girlsScore = avg; state.boysScore = avg; break;
+        case 'CHARITY': const higherTeam = state.girlsScore > state.boysScore ? 'girls' : 'boys'; const lowerTeam = higherTeam === 'girls' ? 'boys' : 'girls'; if(higherTeam !== lowerTeam) { const charityAmount = roundToNearestFive(Math.floor(state[`${higherTeam}Score`] / 2)); addPoints(higherTeam, -charityAmount); addPoints(lowerTeam, charityAmount); } break;
+        case 'REVERSE_CHARITY': const higher = state.girlsScore > state.boysScore ? 'girls' : 'boys'; const lower = higher === 'girls' ? 'boys' : 'girls'; if(higher !== lower){ const reverseCharityAmount = roundToNearestFive(Math.floor(state[`${lower}Score`] / 2)); addPoints(lower, -reverseCharityAmount); addPoints(higher, reverseCharityAmount); } break;
+        case 'SET_SCORE': state[`${target}Score`] = value; break;
+        case 'HALVE_IF_OVER_100': if (state[`${team}Score`] > 100) { state[`${team}Score`] = roundToNearestFive(Math.floor(state[`${team}Score`] / 2)); } break;
+        case 'HALVE_SCORE': state[`${target}Score`] = roundToNearestFive(Math.floor(state[`${target}Score`] / 2)); break;
+        case 'LOSE_QUARTER_SCORE': state[`${target}Score`] = roundToNearestFive(state[`${target}Score`] * 0.75); break;
+        case 'SUBTRACT_HALF_OPPONENT_SCORE': const amountToSubtract = roundToNearestFive(Math.floor(state[`${opponent}Score`] / 2)); addPoints(team, -amountToSubtract); break;
+        case 'IMMUNITY': state.activeEffects[target].immunity = value; break;
+        case 'FREEZE_OPPONENT': state.activeEffects[opponent].freeze = value; break;
+        case 'DOUBLE_NEXT_Q': state.activeEffects[target].double_next_q = value; break;
+        case 'GRANT_VETO': state.veto[target] = true; break;
+        case 'REVENGE': if(state.lastNegativeEffect) { applyCardEffect(state.lastNegativeEffect.effect, opponent); } break;
+        case 'SABOTAGE': state.activeEffects[opponent].sabotage = value; break;
+        case 'GOLDEN_GOOSE': state.activeEffects[team].golden_goose = value; break;
+        case 'INFLATION': state.activeEffects.girls.inflation = value; state.activeEffects.boys.inflation = value; break;
+        case 'WINNING_STREAK': if(!state.activeEffects[team].winning_streak) {state.activeEffects[team].winning_streak = 0;} state.activeEffects[team].winning_streak = 1; break;
+        case 'LEECH': state.activeEffects[team].leech = value; break;
+        case 'GAMBLE': Math.random() < 0.5 ? addPoints(team, 50) : addPoints(team, -30); break;
+        case 'PLAYER_CHOICE_RISK': case 'MANUAL_EFFECT': case 'SHOW_IMAGE':
+            showInteractiveModal(effect, team);
+            effectApplied = false;
+            break;
+        case 'NO_EFFECT': break; 
+        default: console.warn('Unknown effect type:', effect.Effect_Type); break;
+    }
+    
+    if (effectApplied) {
+        updateAllUI();
+        saveState();
+    }
 }
 
-function showInteractiveModal(effect, team) { /* ... */ }
-function updateVisualAids() { /* ... */ }
+function showInteractiveModal(effect, team) {
+    hideAllModals();
+    const opponent = team === 'girls' ? 'boys' : 'girls';
+    elements.interactiveTitle.textContent = effect.Card_Title;
+    elements.interactiveDescription.textContent = effect.Card_Description;
+    elements.interactiveButtons.innerHTML = '';
+    elements.interactiveTimer.classList.add('hidden');
+    elements.interactiveInputArea.classList.add('hidden');
+    clearInterval(interactiveTimerInterval);
 
-// --- INITIALIZATION & EVENT LISTENERS ---
+    const config = effect.Manual_Config || '';
+    const configType = config.split('(')[0];
+    const configValueMatch = config.match(/\((.*)\)/);
+    const configValue = configValueMatch ? configValueMatch[1].split(':')[1] : null;
+
+    if (configType === 'task') {
+        const successBtn = document.createElement('button');
+        successBtn.textContent = `نجح (+${effect.Effect_Value})`; successBtn.className = 'interactive-btn-success';
+        successBtn.onclick = () => { addPoints(team, parseInt(effect.Effect_Value)); hideModal(elements.interactiveModal); };
+        const failBtn = document.createElement('button');
+        failBtn.textContent = 'فشل'; failBtn.className = 'interactive-btn-fail';
+        failBtn.onclick = () => hideModal(elements.interactiveModal);
+        elements.interactiveButtons.append(successBtn, failBtn);
+    } else if (['support', 'deduct', 'manual_add', 'manual_subtract'].includes(configType)) {
+        elements.manualPointsInput.value = '';
+        elements.manualPointsInput.type = 'number';
+        elements.interactiveInputArea.classList.remove('hidden');
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'تأكيد'; confirmBtn.className = 'interactive-btn-confirm';
+        confirmBtn.onclick = () => {
+            let points = parseInt(elements.manualPointsInput.value) || 0;
+            if (configType === 'deduct' || configType === 'manual_subtract') points = -Math.abs(points);
+            addPoints(team, points);
+            hideModal(elements.interactiveModal);
+        };
+        elements.interactiveButtons.append(confirmBtn);
+    } else { 
+        const closeBtn = document.createElement('button'); closeBtn.textContent = 'تم';
+        closeBtn.className = 'interactive-btn-confirm'; closeBtn.onclick = () => hideModal(elements.interactiveModal);
+        elements.interactiveButtons.append(closeBtn);
+    }
+    showModal(elements.interactiveModal);
+}
+
+function updateVisualAids() {
+    ['girls', 'boys'].forEach(team => {
+        const container = elements[`${team}StatusIcons`];
+        container.innerHTML = '';
+        const effects = state.activeEffects[team] || {};
+        if (state.veto[team]) container.innerHTML += `<div class="status-icon" title="فيتو">⚖️</div>`;
+        if (effects.freeze > 0) container.innerHTML += `<div class="status-icon" title="تجميد">❄️<span>${effects.freeze}</span></div>`;
+        if (effects.immunity > 0) container.innerHTML += `<div class="status-icon" title="حصانة">🛡️<span>${effects.immunity}</span></div>`;
+        if (effects.double_next_q > 0) container.innerHTML += `<div class="status-icon" title="نقاط مضاعفة">x2</div>`;
+    });
+}
+
 async function initializeGame() {
     loadState();
     updateAllUI();
@@ -253,7 +417,7 @@ function attachEventListeners() {
         if (!currentQuestion) { alert("خطأ: لا توجد أسئلة متبقية."); return; }
         state.usedQuestionIds.push(currentQuestion.id);
         
-        elements.modalQuestionArea.innerHTML = currentQuestion.question_text || '';
+        elements.modalQuestionArea.innerHTML = `<h3>السؤال ${state.questionNumber}</h3><p>${currentQuestion.question_text || ''}</p>`;
         if (currentQuestion.image_url) { const img = document.createElement('img'); img.src = currentQuestion.image_url; elements.modalQuestionArea.appendChild(img); }
         elements.modalAnswerArea.textContent = currentQuestion.answer;
         elements.modalAnswerArea.classList.add('hidden');
@@ -261,21 +425,24 @@ function attachEventListeners() {
         showModal(elements.questionModal);
         saveState();
     });
+    
+    elements.toggleAnswerBtn.addEventListener('click', () => {
+        elements.modalAnswerArea.classList.toggle('hidden');
+        elements.toggleAnswerBtn.textContent = elements.modalAnswerArea.classList.contains('hidden') ? "إظهار الإجابة" : "إخفاء الإجابة";
+    });
 
     elements.awardButtons.forEach(button => {
         button.addEventListener('click', (event) => {
             if (!state.gameActive) return;
             const winningTeam = event.target.dataset.team;
+            
             playSound('point');
             hideModal(elements.questionModal, false);
             
-            state[`${winningTeam}Score`] += QUESTION_POINTS;
-            updateAllUI();
+            addPoints(winningTeam, QUESTION_POINTS, true);
             
-            if (state.questionNumber % 2 === 0) {
+            if (state.questionNumber % 2 === 0 && !state.countdownActive) {
                 displayCardVault(winningTeam);
-            } else {
-                checkWinner();
             }
         });
     });
@@ -287,13 +454,9 @@ function attachEventListeners() {
             const action = e.target.dataset.action;
             const points = action === 'add' ? MANUAL_POINTS_STEP : -MANUAL_POINTS_STEP;
             
-            state[`${team}Score`] += points;
-            updateScoresUI();
+            if (!state.gameActive && action === 'add') return;
 
-            if(action === 'add') {
-                checkWinner();
-            }
-            saveState();
+            addPoints(team, points, false);
         });
     });
 
@@ -323,9 +486,9 @@ function attachEventListeners() {
         button.addEventListener('click', (e) => {
             const team = e.target.dataset.team;
             hideModal(elements.chooseTeamModal, false);
-            state.gameActive = false;
-            state.countdownActive = true;
-            triggerWinSequence(true, team);
+            if (state.gameActive) {
+                 triggerWinSequence(true, team);
+            }
         });
     });
 
@@ -336,10 +499,10 @@ function attachEventListeners() {
         hideModal(elements.celebrationOverlay);
         state.gameActive = true; 
         state.countdownActive = false;
+        updateScoresUI(); // Check if scores dropped below winning threshold
         saveState();
     });
     
-    // Other listeners
     elements.resetRoundBtn.addEventListener('click', startNewRound);
     elements.newRoundBtnCelebration.addEventListener('click', startNewRound);
     elements.newDayBtn.addEventListener('click', startNewDay);
@@ -348,21 +511,7 @@ function attachEventListeners() {
             hideAllModals();
         });
     });
-    // Add other minor listeners here...
 }
-function attachEventListeners() {
-    // ... all the event listener code ...
-}
-
-// --- INITIALIZE ---
-async function initializeGame() {
-    // ... all the initialization code ...
-    
-    // !!!!!!!!!!! أضف هذا السطر هنا !!!!!!!!!!!
-    alert(`تم تحميل ${allQuestions.length} سؤالاً و ${allCards.length} كارتاً بنجاح.`);
-}
-
-initializeGame();
 
 // --- INITIALIZE ---
 initializeGame();
