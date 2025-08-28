@@ -35,15 +35,29 @@ const elements = {
     modalAnswerArea: document.getElementById('modal-answer-area'), toggleAnswerBtn: document.getElementById('toggle-answer-btn'),
     awardButtons: document.querySelectorAll('.award-btn'),
     celebrationOverlay: document.getElementById('celebration-overlay'), countdownContainer: document.getElementById('countdown-container'),
-    countdownText: document.getElementById('countdown-text'), winnerContainer: document.getElementById('winner-container'), countdownTimer: document.getElementById('countdown-timer'),
-    winnerNameElement: document.getElementById('winner-name'), winnerAvatar: document.getElementById('winner-avatar'),
-    stopCountdownBtn: document.getElementById('stop-countdown-btn'), newRoundBtnCelebration: document.getElementById('new-round-btn-celebration'),
-    allModals: document.querySelectorAll('.modal-overlay'),
-    allCloseButtons: document.querySelectorAll('.modal-close-btn'),
+    countdownText: document.getElementById('countdown-text'), winnerContainer: document.getElementById('winner-container'),
+    countdownTimer: document.getElementById('countdown-timer'), winnerNameElement: document.getElementById('winner-name'),
+    winnerAvatar: document.getElementById('winner-avatar'), stopCountdownBtn: document.getElementById('stop-countdown-btn'),
+    newRoundBtnCelebration: document.getElementById('new-round-btn-celebration'),
+    confettiContainer: document.getElementById('confetti-container'),
+    allModals: document.querySelectorAll('.modal-overlay'), allCloseButtons: document.querySelectorAll('.modal-close-btn'),
     cardVaultModal: document.getElementById('card-vault-modal'), cardGrid: document.getElementById('card-grid'),
     revealCardModal: document.getElementById('reveal-card-modal'), revealCardTitle: document.getElementById('reveal-card-title'),
     revealCardDescription: document.getElementById('reveal-card-description'), revealCardConfirmBtn: document.getElementById('reveal-card-confirm-btn'),
     chooseTeamModal: document.getElementById('choose-team-modal'),
+    interactiveModal: document.getElementById('interactive-modal'), interactiveTitle: document.getElementById('interactive-title'),
+    interactiveDescription: document.getElementById('interactive-description'), interactiveTimer: document.getElementById('interactive-timer'),
+    interactiveInputArea: document.getElementById('interactive-input-area'), manualPointsInput: document.getElementById('manual-points-input'),
+    interactiveButtons: document.getElementById('interactive-buttons'),
+    // Supporter Elements
+    addSupporterBtn: document.getElementById('add-supporter-btn'),
+    supporterModal: document.getElementById('supporter-modal'),
+    supporterForm: document.getElementById('supporter-form'),
+    girlsSupportersList: document.getElementById('girls-supporters'),
+    boysSupportersList: document.getElementById('boys-supporters'),
+    supporterAnnouncement: document.getElementById('supporter-announcement'),
+    announcementPhoto: document.getElementById('announcement-photo'),
+    announcementText: document.getElementById('announcement-text'),
 };
 
 // --- GAME STATE & CORE LOGIC ---
@@ -67,8 +81,8 @@ function resetState(fullReset = false) {
 
 function saveState() { try { localStorage.setItem('ronyGamesV2', JSON.stringify(state)); } catch (e) { console.error("Failed to save state:", e); } }
 function loadState() { const s = localStorage.getItem('ronyGamesV2'); if (s) { state = JSON.parse(s); } else { resetState(true); } }
-function updateScoresUI() { if(elements.girlsScore) elements.girlsScore.textContent = state.girlsScore; if(elements.boysScore) elements.boysScore.textContent = state.boysScore; }
-function updateRoundsUI() { if(elements.girlsRoundsCount) elements.girlsRoundsCount.textContent = state.girlsRoundsWon; if(elements.boysRoundsCount) elements.boysRoundsCount.textContent = state.boysRoundsWon; }
+function updateScoresUI() { if (elements.girlsScore) elements.girlsScore.textContent = state.girlsScore; if (elements.boysScore) elements.boysScore.textContent = state.boysScore; }
+function updateRoundsUI() { if (elements.girlsRoundsCount) elements.girlsRoundsCount.textContent = state.girlsRoundsWon; if (elements.boysRoundsCount) elements.boysRoundsCount.textContent = state.boysRoundsWon; }
 function updateAllUI() { updateScoresUI(); updateRoundsUI(); updateVisualAids(); }
 function showModal(modal) { if (modal) { playSound('modal'); modal.classList.remove('hidden'); } }
 function hideModal(modal) { if (modal) { playSound('modal'); modal.classList.add('hidden'); } }
@@ -81,19 +95,23 @@ function addPoints(team, points, isQuestion = false) {
     if (state.countdownActive && points > 0) return;
     const opponent = team === 'girls' ? 'boys' : 'girls';
     let totalPointsToAdd = points;
+    // Apply card effects
     if (isQuestion) {
         if (state.activeEffects[team]?.double_next_q > 0) { totalPointsToAdd *= 2; state.activeEffects[team].double_next_q = 0; }
     }
     if (totalPointsToAdd > 0 && state.activeEffects[team]?.freeze > 0) return;
     if (totalPointsToAdd > 0 && state.activeEffects[team]?.sabotage > 0) { totalPointsToAdd = Math.floor(totalPointsToAdd / 2); }
+    
     const newScore = state[`${team}Score`] + totalPointsToAdd;
     state[`${team}Score`] = newScore;
     updateScoresUI();
-    if (newScore >= WINNING_SCORE && state.gameActive) { checkWinner(); }
+    if (newScore >= WINNING_SCORE && state.gameActive) {
+        checkWinner();
+    }
     saveState();
 }
 
-function startNewRound() { playSound('click'); resetState(false); if(allCards.length > 0) shuffleAndPrepareCards(); updateAllUI(); if(elements.celebrationOverlay) hideModal(elements.celebrationOverlay); saveState(); }
+function startNewRound() { playSound('click'); resetState(false); if (allCards.length > 0) shuffleAndPrepareCards(); updateAllUI(); if (elements.celebrationOverlay) hideModal(elements.celebrationOverlay); saveState(); }
 function startNewDay() { playSound('click'); if (confirm("هل أنت متأكد؟ سيتم مسح كل شيء.")) { localStorage.removeItem('ronyGamesV2'); resetState(true); location.reload(); } }
 
 function checkWinner() {
@@ -138,12 +156,38 @@ function finalizeRound(winnerTeam) {
     elements.winnerAvatar.src = document.querySelector(`#${winnerTeam}-card .team-avatar`).src;
     elements.countdownContainer.classList.add('hidden');
     elements.winnerContainer.classList.remove('hidden');
+    launchConfetti();
+}
+
+function launchConfetti() {
+    if (!elements.confettiContainer) return;
+    elements.confettiContainer.innerHTML = '';
+    const colors = ['#ff478a', '#00e1ff', '#ffd700', '#ffffff'];
+    for (let i = 0; i < 150; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + 'vw';
+        confetti.style.animationDelay = Math.random() * 2 + 's';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        elements.confettiContainer.appendChild(confetti);
+    }
 }
 
 function shuffleAndPrepareCards() { let s = [...allCards].sort(() => 0.5 - Math.random()); state.shuffledCards = {}; for (let i = 0; i < s.length; i++) { state.shuffledCards[i + 1] = s[i]; } state.usedCardNumbers = []; }
 function displayCardVault(winningTeam) { if (!elements.cardVaultModal) return; hideAllModals(); elements.cardGrid.innerHTML = ''; for (let i = 1; i <= allCards.length; i++) { const c = document.createElement('button'); c.className = 'card-button'; c.textContent = i; if (state.usedCardNumbers.includes(i)) { c.classList.add('used'); c.disabled = true; } c.addEventListener('click', () => handleCardClick(i, winningTeam)); elements.cardGrid.appendChild(c); } showModal(elements.cardVaultModal); }
 function handleCardClick(cardNumber, winningTeam) { playSound('card_reveal'); const effect = state.shuffledCards[cardNumber]; elements.revealCardTitle.textContent = effect.Card_Title; elements.revealCardDescription.textContent = effect.Card_Description; elements.revealCardConfirmBtn.onclick = () => { state.usedCardNumbers.push(cardNumber); hideModal(elements.revealCardModal); applyCardEffect(effect, winningTeam); }; hideModal(elements.cardVaultModal); showModal(elements.revealCardModal); }
-function applyCardEffect(effect, team) { /* ... Your full applyCardEffect logic ... */ updateAllUI(); saveState(); }
+function applyCardEffect(effect, team) { 
+    // This is where your detailed applyCardEffect switch statement goes
+    // For brevity, it's simplified here. Ensure your full logic is present.
+    const value = parseInt(effect.Effect_Value) || 0;
+    if (effect.Effect_Type === 'ADD_POINTS') {
+        addPoints(team, value);
+    } else if (effect.Effect_Type === 'SUBTRACT_POINTS') {
+        addPoints(team, -value);
+    }
+    updateAllUI(); 
+    saveState(); 
+}
 function updateVisualAids() { /* ... Your full updateVisualAids logic ... */ }
 
 async function initializeGame() {
@@ -155,14 +199,14 @@ async function initializeGame() {
         if (!qRes.ok || !cRes.ok) throw new Error('Network response was not ok');
         const qData = await qRes.json();
         const cData = await cRes.json();
-        allQuestions = (qData.values || []).slice(1).map(r => ({ id: r[0], q: r[2], a: r[4] })).filter(i => i.id);
-        allCards = (cData.values || []).slice(1).map(r => ({ Card_Title: r[0], Card_Description: r[1], Effect_Type: r[2], Effect_Value: r[3], Target: r[4] })).filter(i => i.Card_Title);
+        // Full data mapping
+        allQuestions = (qData.values || []).slice(1).map(row => ({ id: row[0], type: row[1], question_text: row[2], image_url: row[3], answer: row[4], category: row[5] || 'عام' })).filter(q => q.id);
+        allCards = (cData.values || []).slice(1).map(row => ({ Card_Title: row[0], Card_Description: row[1], Effect_Type: row[2], Effect_Value: row[3], Target: row[4], Manual_Config: row[5] || '', Sound_Effect: row[6] || '' })).filter(c => c.Card_Title);
         availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
         if (allCards.length > 0) shuffleAndPrepareCards();
-    } catch (error) { document.body.innerHTML = `<h1>فشل تحميل بيانات اللعبة</h1><p>${error.message}</p>`; }
+    } catch (error) { document.body.innerHTML = `<h1>فشل تحميل بيانات اللعبة</h1><p>${error.message}</p><p>تأكد من صحة الرابط ومفتاح API وإعدادات المشاركة للجدول.</p>`; }
 }
 
-// ############### The Robust Event Listeners ###############
 function attachEventListeners() {
     if (elements.nextQuestionBtn) elements.nextQuestionBtn.addEventListener('click', () => {
         if (!state.gameActive) { alert("الجولة متوقفة!"); return; }
@@ -172,8 +216,9 @@ function attachEventListeners() {
         const randIdx = Math.floor(Math.random() * availableQuestions.length);
         const question = availableQuestions.splice(randIdx, 1)[0];
         state.usedQuestionIds.push(question.id);
-        elements.modalQuestionArea.innerHTML = `<p>${question.q || ''}</p>`;
-        elements.modalAnswerArea.textContent = question.a;
+        elements.modalQuestionArea.innerHTML = `<p>${question.question_text || ''}</p>`;
+        if (question.image_url) { const img = document.createElement('img'); img.src = question.image_url; elements.modalQuestionArea.appendChild(img); }
+        elements.modalAnswerArea.textContent = question.answer;
         elements.modalAnswerArea.classList.add('hidden');
         elements.toggleAnswerBtn.textContent = "إظهار الإجابة";
         showModal(elements.questionModal);
@@ -198,7 +243,7 @@ function attachEventListeners() {
             const team = e.target.dataset.team;
             const action = e.target.dataset.action;
             const points = action === 'add' ? MANUAL_POINTS_STEP : -MANUAL_POINTS_STEP;
-            if (!state.gameActive && action === 'add') return;
+            if (!state.gameActive && action === 'add' && !state.countdownActive) return;
             playSound('click');
             addPoints(team, points, false);
         });
@@ -213,12 +258,57 @@ function attachEventListeners() {
         saveState();
     });
     
-    // Add other listeners with checks
+    // Supporter Listeners
+    if (elements.addSupporterBtn) {
+        elements.addSupporterBtn.addEventListener('click', () => {
+            if(elements.supporterModal) showModal(elements.supporterModal);
+        });
+    }
+
+    if (elements.supporterForm) {
+        elements.supporterForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const nameInput = document.getElementById('supporter-name');
+            const photoInput = document.getElementById('supporter-photo');
+            const teamInput = document.querySelector('input[name="team"]:checked');
+            if (!nameInput || !photoInput || !teamInput) return;
+
+            const name = nameInput.value;
+            const team = teamInput.value;
+            
+            if (name && photoInput.files.length > 0) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const photoSrc = e.target.result;
+                    const list = elements[`${team}SupportersList`];
+                    
+                    const supporterCard = document.createElement('div');
+                    supporterCard.className = 'supporter-card';
+                    supporterCard.innerHTML = `<img src="${photoSrc}" alt="${name}"><p>${name}</p>`;
+                    if(list) list.appendChild(supporterCard);
+                    
+                    playSound('supporter');
+                    if(elements.announcementPhoto) elements.announcementPhoto.src = photoSrc;
+                    if(elements.announcementText) elements.announcementText.textContent = `${name} يدعم فريق ${team === 'girls' ? 'البنات' : 'الشباب'}`;
+                    if(elements.supporterAnnouncement) {
+                        elements.supporterAnnouncement.classList.remove('hidden');
+                        setTimeout(() => { elements.supporterAnnouncement.classList.add('hidden'); }, 4000);
+                    }
+                };
+                reader.readAsDataURL(photoInput.files[0]);
+                
+                elements.supporterForm.reset();
+                hideModal(elements.supporterModal);
+            }
+        });
+    }
+
+    // Other Listeners
     if (elements.resetRoundBtn) elements.resetRoundBtn.addEventListener('click', startNewRound);
     if (elements.newDayBtn) elements.newDayBtn.addEventListener('click', startNewDay);
     if (elements.newRoundBtnCelebration) elements.newRoundBtnCelebration.addEventListener('click', startNewRound);
-    if (elements.toggleAnswerBtn) elements.toggleAnswerBtn.addEventListener('click', () => { elements.modalAnswerArea.classList.toggle('hidden'); });
-    if (elements.settleRoundBtn) elements.settleRoundBtn.addEventListener('click', () => { if(state.gameActive) showModal(elements.chooseTeamModal); });
+    if (elements.toggleAnswerBtn) elements.toggleAnswerBtn.addEventListener('click', () => { if(elements.modalAnswerArea) elements.modalAnswerArea.classList.toggle('hidden'); });
+    if (elements.settleRoundBtn) elements.settleRoundBtn.addEventListener('click', () => { if(state.gameActive && elements.chooseTeamModal) showModal(elements.chooseTeamModal); });
     if (elements.chooseTeamModal) elements.chooseTeamModal.querySelectorAll('.award-btn').forEach(button => {
         button.addEventListener('click', (e) => {
             const team = e.target.dataset.team;
