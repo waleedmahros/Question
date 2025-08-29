@@ -1,6 +1,6 @@
 // --- CONFIGURATION ---
 const GOOGLE_SHEET_ID = '1GYDE5x9uumXhWZ2QCTQKdtYtb72izVy0cwPsIQr08ic';
-const API_KEY = 'AIzaSyAc1zPbwDhMh3gc_qdPmNwbgd8ubcrG55o'; // !!!!!!!!!!!!!!!!!!!!!!!!!!! ضع مفتاح API الخاص بك هنا !!!!!!!!!!!!!!!!!!!!!!!!!!!
+const API_KEY = 'AIzaSyAc1zPbwDhMh3gc_qdPmNwbgd8ubcrG55o';
 const QUESTIONS_SHEET_URL = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/1!A:F?key=${API_KEY}`;
 const CARDS_SHEET_URL = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/cards!A:G?key=${API_KEY}`;
 
@@ -26,19 +26,15 @@ sounds.countdown.loop = true;
 let isAudioUnlocked = false;
 function unlockAudio() { if (isAudioUnlocked) return; const silentSound = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="); silentSound.play().catch(() => {}); isAudioUnlocked = true; }
 
-// تحسين دالة playSound لدعم الأصوات المخصصة
 function playSound(soundName) {
     unlockAudio();
     
-    // إذا لم يكن الصوت محمّل، حمّله
     if (!sounds[soundName]) {
         console.log(`تحميل صوت جديد: ${soundName}`);
         sounds[soundName] = new Audio(`sounds/${soundName}.mp3`);
         
-        // معالجة أخطاء التحميل
         sounds[soundName].addEventListener('error', (e) => {
             console.error(`خطأ في تحميل الصوت: ${soundName}`, e);
-            // تشغيل صوت افتراضي بدلاً من عدم تشغيل شيء
             if (sounds.click) {
                 sounds.click.currentTime = 0;
                 sounds.click.play().catch(() => {});
@@ -201,7 +197,6 @@ function handleCardClick(cardNumber, winningTeam) {
     };
     hideModal(elements.cardVaultModal);
     showModal(elements.revealCardModal);
-    // تشغيل الصوت المخصص للكارت هنا
     if (effect.Sound_Effect) {
         console.log(`تشغيل الصوت المخصص للكارت: ${effect.Sound_Effect}`);
         playSound(effect.Sound_Effect);
@@ -210,23 +205,42 @@ function handleCardClick(cardNumber, winningTeam) {
 
 function roundToNearestFive(num) { return Math.floor(num / 5) * 5; }
 
-// تحسين دالة applyCardEffect مع debugging مفصل
 function applyCardEffect(effect, team) {
-    // إضافة تسجيل مفصل للتشخيص
     console.log("=== تطبيق تأثير الكارت ===");
     console.log("اسم الكارت:", effect.Card_Title);
     console.log("نوع التأثير:", effect.Effect_Type);
     console.log("قيمة التأثير:", effect.Effect_Value);
     console.log("الهدف:", effect.Target);
     console.log("الفريق المطبق:", team);
-    // تم نقل تشغيل الصوت المخصص إلى handleCardClick
     
-    const opponent = team === "girls" ? "boys" : "girls";
+    const opponent = team === 'girls' ? 'boys' : 'girls';
     const value = parseInt(effect.Effect_Value) || 0;
     let target = effect.Target === "OPPONENT" ? opponent : team;
     let effectApplied = true;
 
-    // تشغيل الصوت الافتراضي للتأثيرات العامة
+    // حفظ التأثير السلبي للانتقام
+    if (isNegativeEffect(effect.Effect_Type) && effect.Effect_Type !== 'REVENGE') {
+        state.lastNegativeEffect = {
+            effect: {...effect},
+            team: team,
+            timestamp: Date.now()
+        };
+        console.log('تم حفظ التأثير السلبي للانتقام:', effect.Card_Title);
+    }
+
+    // التحقق من الحصانة ضد التأثيرات السلبية
+    if (effect.Target !== 'BOTH' && 
+        isNegativeEffect(effect.Effect_Type) && 
+        state.activeEffects[target]?.immunity > 0) {
+        console.log(`تم إلغاء التأثير بسبب الحصانة لدى فريق ${target}`);
+        alert(`تم إلغاء تأثير ${effect.Card_Title} بسبب الحصانة لدى فريق ${target === 'girls' ? 'البنات' : 'الشباب'}`);
+        updateAllUI();
+        saveState();
+        checkWinner();
+        return;
+    }
+
+    // تشغيل الأصوات المناسبة
     if (["SUBTRACT_POINTS", "RESET_SCORE", "LOSE_QUARTER_SCORE", "REVERSE_CHARITY", "SUBTRACT_HALF_OPPONENT_SCORE", "HALVE_IF_OVER_100", "HALVE_SCORE", "GENEROSITY"].includes(effect.Effect_Type)) { 
         playSound("negative_effect"); 
     }
@@ -249,14 +263,15 @@ function applyCardEffect(effect, team) {
             break;
         
         case 'SUBTRACT_POINTS': 
-            state[`${target}Score`] -= value; 
+            state[`${target}Score`] = Math.max(0, state[`${target}Score`] - value); 
             console.log(`خصم ${value} نقطة من فريق ${target}`);
             break;
         
         case 'STEAL_POINTS': 
-            state[`${team}Score`] += value; 
-            state[`${opponent}Score`] -= value; 
-            console.log(`سرقة ${value} نقطة من ${opponent} إلى ${team}`);
+            const stealAmount = Math.min(value, state[`${opponent}Score`]);
+            state[`${team}Score`] += stealAmount; 
+            state[`${opponent}Score`] -= stealAmount; 
+            console.log(`سرقة ${stealAmount} نقطة من ${opponent} إلى ${team}`);
             break;
         
         case 'SWAP_SCORES': 
@@ -280,7 +295,6 @@ function applyCardEffect(effect, team) {
             break;
         
         case 'CHARITY': 
-            // إصلاح المنطق الخاطئ
             if (state.girlsScore !== state.boysScore) {
                 const higherTeam = state.girlsScore > state.boysScore ? 'girls' : 'boys'; 
                 const lowerTeam = higherTeam === 'girls' ? 'boys' : 'girls'; 
@@ -296,7 +310,6 @@ function applyCardEffect(effect, team) {
             break;
         
         case 'REVERSE_CHARITY': 
-            // إصلاح المنطق الخاطئ
             if (state.girlsScore !== state.boysScore) {
                 const higher = state.girlsScore > state.boysScore ? 'girls' : 'boys'; 
                 const lower = higher === 'girls' ? 'boys' : 'girls'; 
@@ -312,7 +325,6 @@ function applyCardEffect(effect, team) {
             break;
         
         case 'SET_SCORE': 
-            // تحسين المنطق
             const oldScore = state[`${target}Score`];
             if (oldScore < value) { 
                 state[`${target}Score`] = value; 
@@ -349,7 +361,7 @@ function applyCardEffect(effect, team) {
         case 'SUBTRACT_HALF_OPPONENT_SCORE': 
             if (state[`${opponent}Score`] > 0) { 
                 const amountToSubtract = roundToNearestFive(Math.floor(state[`${opponent}Score`] / 2)); 
-                state[`${team}Score`] -= amountToSubtract; 
+                state[`${team}Score`] = Math.max(0, state[`${team}Score`] - amountToSubtract); 
                 console.log(`خصم نصف نقاط الخصم (${amountToSubtract}) من فريق ${team}`);
             } 
             break;
@@ -378,17 +390,20 @@ function applyCardEffect(effect, team) {
             break;
         
         case 'IMMUNITY': 
-            state.activeEffects[target].immunity = value; 
+            if (!state.activeEffects[target]) state.activeEffects[target] = {};
+            state.activeEffects[target].immunity = (state.activeEffects[target].immunity || 0) + value; 
             console.log(`منح حصانة لفريق ${target} لمدة ${value} أسئلة`);
             break;
         
         case 'FREEZE_OPPONENT': 
-            state.activeEffects[opponent].freeze = value; 
+            if (!state.activeEffects[opponent]) state.activeEffects[opponent] = {};
+            state.activeEffects[opponent].freeze = (state.activeEffects[opponent].freeze || 0) + value; 
             console.log(`تجميد فريق ${opponent} لمدة ${value} أسئلة`);
             break;
         
         case 'DOUBLE_NEXT_Q': 
-            state.activeEffects[target].double_next_q = value; 
+            if (!state.activeEffects[target]) state.activeEffects[target] = {};
+            state.activeEffects[target].double_next_q = (state.activeEffects[target].double_next_q || 0) + value; 
             console.log(`مضاعفة النقاط للسؤال القادم لفريق ${target}`);
             break;
         
@@ -399,40 +414,49 @@ function applyCardEffect(effect, team) {
         
         case 'REVENGE': 
             if(state.lastNegativeEffect) { 
-                console.log('تطبيق الانتقام');
-                applyCardEffect(state.lastNegativeEffect.effect, opponent); 
+                console.log('تطبيق الانتقام بناء على:', state.lastNegativeEffect.effect.Card_Title);
+                applyCardEffect(state.lastNegativeEffect.effect, opponent);
             } else {
                 console.log('لا يوجد تأثير سلبي سابق للانتقام منه');
+                // بديل إذا لم يكن هناك تأثير سلبي سابق
+                state[`${team}Score`] += 20;
             }
             break;
         
         case 'TAXES': 
-            state.activeEffects[team].taxes = value; 
+            if (!state.activeEffects[team]) state.activeEffects[team] = {};
+            state.activeEffects[team].taxes = (state.activeEffects[team].taxes || 0) + value; 
             console.log(`تطبيق ضرائب على فريق ${team} لمدة ${value} أسئلة`);
             break;
         
         case 'REFLECTIVE_SHIELD': 
-            state.activeEffects[target].shield = value; 
+            if (!state.activeEffects[target]) state.activeEffects[target] = {};
+            state.activeEffects[target].shield = (state.activeEffects[target].shield || 0) + value; 
             console.log(`منح درع عاكس لفريق ${target} لمدة ${value} أسئلة`);
             break;
         
         case 'SABOTAGE': 
-            state.activeEffects[opponent].sabotage = value; 
+            if (!state.activeEffects[opponent]) state.activeEffects[opponent] = {};
+            state.activeEffects[opponent].sabotage = (state.activeEffects[opponent].sabotage || 0) + value; 
             console.log(`تخريب فريق ${opponent} لمدة ${value} أسئلة`);
             break;
         
         case 'GOLDEN_GOOSE': 
-            state.activeEffects[team].golden_goose = value; 
+            if (!state.activeEffects[team]) state.activeEffects[team] = {};
+            state.activeEffects[team].golden_goose = (state.activeEffects[team].golden_goose || 0) + value; 
             console.log(`إوزة ذهبية لفريق ${team} لمدة ${value} أسئلة`);
             break;
         
         case 'INFLATION': 
-            state.activeEffects.girls.inflation = value; 
-            state.activeEffects.boys.inflation = value; 
+            if (!state.activeEffects.girls) state.activeEffects.girls = {};
+            if (!state.activeEffects.boys) state.activeEffects.boys = {};
+            state.activeEffects.girls.inflation = (state.activeEffects.girls.inflation || 0) + value; 
+            state.activeEffects.boys.inflation = (state.activeEffects.boys.inflation || 0) + value; 
             console.log(`تطبيق تضخم على الفريقين لمدة ${value} أسئلة`);
             break;
         
         case 'WINNING_STREAK': 
+            if (!state.activeEffects[team]) state.activeEffects[team] = {};
             if(!state.activeEffects[team].winning_streak) {
                 state.activeEffects[team].winning_streak = 0;
             } 
@@ -441,7 +465,8 @@ function applyCardEffect(effect, team) {
             break;
         
         case 'LEECH': 
-            state.activeEffects[team].leech = value; 
+            if (!state.activeEffects[team]) state.activeEffects[team] = {};
+            state.activeEffects[team].leech = (state.activeEffects[team].leech || 0) + value; 
             console.log(`طفيلي لفريق ${team} لمدة ${value} أسئلة`);
             break;
         
@@ -473,6 +498,17 @@ function applyCardEffect(effect, team) {
     }
 }
 
+// تحديد إذا كان التأثير سلبيًا
+function isNegativeEffect(effectType) {
+    const negativeEffects = [
+        'SUBTRACT_POINTS', 'RESET_SCORE', 'LOSE_QUARTER_SCORE', 
+        'REVERSE_CHARITY', 'SUBTRACT_HALF_OPPONENT_SCORE', 
+        'HALVE_IF_OVER_100', 'HALVE_SCORE', 'FREEZE_OPPONENT', 
+        'SABOTAGE', 'TAXES', 'LEECH'
+    ];
+    return negativeEffects.includes(effectType);
+}
+
 // إصلاح الخطأ الإملائي في updateVisualAids
 function updateVisualAids() {
     ['girls', 'boys'].forEach(team => {
@@ -489,7 +525,6 @@ function updateVisualAids() {
         if (effects.sabotage > 0) container.innerHTML += `<div class="status-icon" title="تخريب">💣<span>${effects.sabotage}</span></div>`;
         if (effects.golden_goose > 0) container.innerHTML += `<div class="status-icon" title="إوزة ذهبية">🥚<span>${effects.golden_goose}</span></div>`;
         if (effects.winning_streak > 0) container.innerHTML += `<div class="status-icon" title="سلسلة انتصارات">🔥<span>${effects.winning_streak}</span></div>`;
-        // إصلاح الخطأ الإملائي: إزالة النقطة الزائدة
         if (effects.leech > 0) container.innerHTML += `<div class="status-icon" title="طفيلي">🦠<span>${effects.leech}</span></div>`;
         if (effects.inflation > 0) container.innerHTML += `<div class="status-icon" title="تضخم">📈<span>${effects.inflation}</span></div>`;
     });
@@ -535,12 +570,24 @@ function showInteractiveModal(effect, team) {
         confirmBtn.textContent = 'تأكيد'; confirmBtn.className = 'interactive-btn-confirm';
         confirmBtn.onclick = () => {
             let points = parseInt(elements.manualPointsInput.value) || 0;
-            if (configType === 'deduct') { state[`${opponent}Score`] -= points; }
-            else if (configType === 'manual_add') { state[`${team}Score`] += (points * 5); }
-            else if (configType === 'manual_subtract') { state[`${team}Score`] -= (points * 5); }
-            else if (configType === 'manual_multiply') { state[`${team}Score`] += (points * 10); }
-            else if (configType === 'manual_multiply_subtract') { state[`${team}Score`] -= (points * 10); }
-            else { state[`${team}Score`] += points; } // support
+            if (configType === 'deduct') { 
+                state[`${opponent}Score`] = Math.max(0, state[`${opponent}Score`] - points); 
+            }
+            else if (configType === 'manual_add') { 
+                state[`${team}Score`] += (points * 5); 
+            }
+            else if (configType === 'manual_subtract') { 
+                state[`${team}Score`] = Math.max(0, state[`${team}Score`] - (points * 5)); 
+            }
+            else if (configType === 'manual_multiply') { 
+                state[`${team}Score`] += (points * 10); 
+            }
+            else if (configType === 'manual_multiply_subtract') { 
+                state[`${team}Score`] = Math.max(0, state[`${team}Score`] - (points * 10)); 
+            }
+            else { 
+                state[`${team}Score`] += points; 
+            } // support
             hideModal(elements.interactiveModal); updateAllUI(); checkWinner();
         };
         elements.interactiveButtons.append(confirmBtn);
@@ -552,12 +599,23 @@ function showInteractiveModal(effect, team) {
             const btn2 = document.createElement('button'); btn2.textContent = "اختيار كارت جديد"; btn2.className = 'interactive-btn-choice';
             btn2.onclick = () => { hideModal(elements.interactiveModal); displayCardVault(team); };
             elements.interactiveButtons.append(btn1, btn2);
-        } else { // اعمل الصح
+        } else if (effect.Card_Title.includes("اعمل الصح")) { // اعمل الصح
             const btn1 = document.createElement('button'); btn1.textContent = "تبرع بـ 50 نقطة"; btn1.className = 'interactive-btn-fail';
-            btn1.onclick = () => { state[`${team}Score`] -= 50; state[`${opponent}Score`] += 50; hideModal(elements.interactiveModal); updateAllUI(); checkWinner(); };
+            btn1.onclick = () => { 
+                state[`${team}Score`] = Math.max(0, state[`${team}Score`] - 50); 
+                state[`${opponent}Score`] += 50; 
+                hideModal(elements.interactiveModal); 
+                updateAllUI(); 
+                checkWinner(); 
+            };
             const btn2 = document.createElement('button'); btn2.textContent = "العب مع الخصم"; btn2.className = 'interactive-btn-choice';
             btn2.onclick = () => hideModal(elements.interactiveModal);
             elements.interactiveButtons.append(btn1, btn2);
+        } else {
+            // Default choice behavior
+            const closeBtn = document.createElement('button'); closeBtn.textContent = 'تم';
+            closeBtn.className = 'interactive-btn-confirm'; closeBtn.onclick = () => hideModal(elements.interactiveModal);
+            elements.interactiveButtons.append(closeBtn);
         }
     } else { // info, default
         const closeBtn = document.createElement('button'); closeBtn.textContent = 'تم';
@@ -621,8 +679,14 @@ function awardPoints(team, points) {
     const opponent = team === 'girls' ? 'boys' : 'girls';
     let finalPoints = points;
 
-    // 1. تحقق من تأثيرات الفريق الفائز
+    // التحقق من تأثيرات الفريق الفائز
     if (state.activeEffects[team]) {
+        // التحقق من التجمد
+        if (state.activeEffects[team].freeze > 0) {
+            alert(`فريق ${team === 'girls' ? 'البنات' : 'الشباب'} مجمد ولا يمكنه تلقي النقاط!`);
+            return;
+        }
+        
         if (state.activeEffects[team].double_next_q > 0) {
             finalPoints *= 2;
             state.activeEffects[team].double_next_q = 0; // استخدم التأثير مرة واحدة
@@ -639,7 +703,7 @@ function awardPoints(team, points) {
         }
     }
 
-    // 2. تحقق من تأثيرات الفريق الخصم
+    // التحقق من تأثيرات الفريق الخصم
     if (state.activeEffects[opponent]) {
         if (state.activeEffects[opponent].shield > 0) {
             // عكس النقاط
@@ -674,7 +738,7 @@ function attachEventListeners() {
         ['girls', 'boys'].forEach(team => {
             if (state.activeEffects[team]) {
                 for (const effect in state.activeEffects[team]) {
-                    if (state.activeEffects[team][effect] > 0) {
+                    if (typeof state.activeEffects[team][effect] === 'number' && state.activeEffects[team][effect] > 0) {
                         state.activeEffects[team][effect]--;
                     }
                 }
@@ -810,34 +874,5 @@ function attachEventListeners() {
     elements.toggleAnswerBtn.addEventListener('click', () => elements.modalAnswerArea.classList.toggle('hidden'));
 }
 
-// إضافة دالة تشخيص شاملة
-function diagnoseGameState() {
-    console.log('=== تشخيص حالة اللعبة ===');
-    
-    // فحص الأصوات
-    console.log('الأصوات المحملة حالياً:', Object.keys(sounds));
-    
-    // فحص الكروت وأصواتها
-    const cardSounds = allCards.filter(card => card.Sound_Effect).map(card => ({
-        title: card.Card_Title,
-        sound: card.Sound_Effect
-    }));
-    console.log('الكروت التي لها أصوات مخصصة:', cardSounds);
-    
-    // فحص الكروت المتاحة
-    console.log('إجمالي الكروت:', allCards.length);
-    console.log('الكروت المستخدمة:', state.usedCardNumbers);
-    
-    // فحص التأثيرات النشطة
-    console.log('التأثيرات النشطة:', state.activeEffects);
-    
-    // فحص النقاط الحالية
-    console.log(`النقاط الحالية - البنات: ${state.girlsScore}, الشباب: ${state.boysScore}`);
-    
-    console.log('=== انتهاء التشخيص ===');
-}
-
 // --- INITIALIZE ---
 initializeGame();
-
-
