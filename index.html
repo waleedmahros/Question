@@ -24,26 +24,23 @@
         <div class="supporters-list" id="boys-supporters"><h3> درع الفريق 👑</h3></div>
     </main>
     <footer>
-        <button id="add-supporter-btn">إضافة داعم</button><button id="settle-round-btn">حسم الجولة</button><button id="next-question-btn">السؤال التالي</button><button id="reset-round-btn">جولة جديدة</button><button id="new-day-btn">يوم جديد</button>
+        <button id="add-supporter-btn">إضافة داعم</button>
+        <button id="settle-round-btn" disabled>حسم الجولة</button>
+        <button id="next-question-btn" disabled>جاري تحميل الأسئلة...</button>
+        <button id="reset-round-btn" disabled>جولة جديدة</button>
+        <button id="new-day-btn">يوم جديد</button>
     </footer>
     
-    <div id="supporter-modal" class="modal-overlay hidden"> </div>
-    <div id="question-modal" class="modal-overlay hidden"> </div>
-    <div id="celebration-overlay" class="modal-overlay hidden"> </div>
-    <div id="card-vault-modal" class="modal-overlay hidden"> </div>
-    <div id="reveal-card-modal" class="modal-overlay hidden"> </div>
-    <div id="interactive-modal" class="modal-overlay hidden"> </div>
-    <div id="choose-team-modal" class="modal-overlay hidden"> </div>
+    <div id="supporter-modal" class="modal-overlay hidden"><div class="modal-content"><button class="modal-close-btn">&times;</button><h2>إضافة درع جديد</h2><form id="supporter-form"><input type="text" id="supporter-name" placeholder="اسم الداعم" required><input type="file" id="supporter-photo" accept="image/*" required><div class="team-selection"><p>إضافة الدرع لفريق:</p><div><input type="radio" id="team-girls" name="team" value="girls" checked><label for="team-girls">البنات</label></div><div><input type="radio" id="team-boys" name="team" value="boys"><label for="team-boys">الشباب</label></div></div><button type="submit">إضافة الآن</button></form></div></div>
+    <div id="question-modal" class="modal-overlay hidden"><div class="modal-content"><button class="modal-close-btn">&times;</button><div id="modal-question-area"></div><div id="modal-answer-area" class="hidden"></div><div class="modal-controls"><button id="toggle-answer-btn">إظهار الإجابة</button><div class="award-section"><span>مين جاوب؟</span><div class="award-buttons"><button class="award-btn" data-team="girls">البنات</button><button class="award-btn" data-team="boys">الشباب</button></div></div></div></div></div>
+    <div id="celebration-overlay" class="modal-overlay hidden"><button class="modal-close-btn">&times;</button><div id="confetti-container"></div><div id="countdown-container" class="hidden"><div id="countdown-timer">30</div><p id="countdown-text">فرصة أخيرة لدعم الفريق!</p><button id="stop-countdown-btn">إيقاف ومتابعة اللعب</button></div><div id="winner-container" class="hidden"><img id="winner-avatar" src="" alt="الفريق الفائز"><h2>الفريق الفائز</h2><div class="winner-title"><h1 id="winner-name"></h1><span id="winner-trophy">🏆</span></div><button id="new-round-btn-celebration">بدء جولة جديدة</button></div></div>
+    <div id="card-vault-modal" class="modal-overlay hidden"><div class="modal-content wide-modal"><button class="modal-close-btn">&times;</button><h2 class="modal-title">خزنة الحظ</h2><p class="modal-subtitle">اختر رقمك يا بطل!</p><div id="card-grid"></div></div></div>
+    <div id="reveal-card-modal" class="modal-overlay hidden"><div class="modal-content reveal-modal-content"><div id="reveal-card-title"></div><div id="reveal-card-description"></div><button id="reveal-card-confirm-btn">موافق</button></div></div>
+    <div id="interactive-modal" class="modal-overlay hidden"><div class="modal-content"><button class="modal-close-btn">&times;</button><h2 id="interactive-title" class="modal-title"></h2><p id="interactive-description"></p><div id="interactive-timer" class="hidden"></div><div id="interactive-input-area" class="hidden"><input type="number" id="manual-points-input" placeholder="أدخل الرقم"></div><div id="interactive-buttons" class="modal-controls"></div></div></div>
+    <div id="choose-team-modal" class="modal-overlay hidden"><div class="modal-content"><button class="modal-close-btn">&times;</button><h2 class="modal-title">حسم الجولة</h2><p>اختر الفريق الذي سيحسم الجولة:</p><div class="modal-controls team-choice-buttons"><button class="award-btn" data-team="girls">البنات</button><button class="award-btn" data-team="boys">الشباب</button></div></div></div>
+    <div id="summary-modal" class="modal-overlay hidden"><div class="modal-content summary-modal-content"><h2 id="summary-title">ملخص الحكم</h2><p id="summary-text"></p><button id="summary-confirm-btn">متابعة</button></div></div>
+    <div id="supporter-announcement" class="hidden"><img id="announcement-photo" src="" alt="صورة الداعم"><h2 id="announcement-text"></h2></div>
     
-    <div id="summary-modal" class="modal-overlay hidden">
-        <div class="modal-content summary-modal-content">
-            <h2 id="summary-title">ملخص الحكم</h2>
-            <p id="summary-text"></p>
-            <button id="summary-confirm-btn">متابعة</button>
-        </div>
-    </div>
-
-    <div id="supporter-announcement" class="hidden"> </div>
     <script src="script.js" defer></script>
 </body>
 </html>
