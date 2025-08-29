@@ -10,29 +10,16 @@ const MANUAL_POINTS_STEP = 5;
 
 // --- AUDIO SETUP ---
 const sounds = {
-    click: new Audio('sounds/click.mp3'),
-    modal: new Audio('sounds/modal.mp3'),
-    point: new Audio('sounds/point.mp3'),
-    win: new Audio('sounds/win.mp3'),
-    countdown: new Audio('sounds/countdown.mp3'),
-    supporter: new Audio('sounds/supporter.mp3'),
-    card_reveal: new Audio('sounds/card_reveal.mp3'),
-    positive_effect: new Audio('sounds/positive_effect.mp3'),
-    negative_effect: new Audio('sounds/negative_effect.mp3'),
-    sparkle: new Audio('sounds/sparkle.mp3')
+    click: new Audio('sounds/click.mp3'), modal: new Audio('sounds/modal.mp3'), point: new Audio('sounds/point.mp3'),
+    win: new Audio('sounds/win.mp3'), countdown: new Audio('sounds/countdown.mp3'), supporter: new Audio('sounds/supporter.mp3'),
+    card_reveal: new Audio('sounds/card_reveal.mp3'), positive_effect: new Audio('sounds/positive_effect.mp3'),
+    negative_effect: new Audio('sounds/negative_effect.mp3'), sparkle: new Audio('sounds/sparkle.mp3')
 };
 sounds.countdown.loop = true;
 
 let isAudioUnlocked = false;
 function unlockAudio() { if (isAudioUnlocked) return; const silentSound = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="); silentSound.play().catch(() => {}); isAudioUnlocked = true; }
-function playSound(soundName) {
-    if(!soundName) return;
-    unlockAudio();
-    if (sounds[soundName]) {
-        sounds[soundName].currentTime = 0;
-        sounds[soundName].play().catch(e => console.error(`Error playing sound: ${soundName}`, e));
-    }
-}
+function playSound(soundName) { if(!soundName) return; unlockAudio(); if (sounds[soundName]) { sounds[soundName].currentTime = 0; sounds[soundName].play().catch(e => console.error(`Error playing sound: ${soundName}`, e)); } }
 function stopSound(soundName) { if (sounds[soundName]) { sounds[soundName].pause(); sounds[soundName].currentTime = 0; } }
 
 // --- DOM ELEMENTS ---
@@ -117,16 +104,35 @@ function checkWinner() {
 }
 
 function triggerWinSequence(isSettled = false, settledTeam = null) {
-    // ... (This function is now correct)
+    showModal(elements.celebrationOverlay, false);
+    elements.winnerContainer.classList.add('hidden');
+    elements.countdownContainer.classList.remove('hidden');
+    elements.countdownText.textContent = isSettled ? `سيتم حسم الجولة لصالح فريق ${settledTeam === 'girls' ? 'البنات' : 'الشباب'}!` : 'فرصة أخيرة لدعم الفريق!';
+    playSound('countdown');
+    let count = 30;
+    elements.countdownTimer.textContent = count;
+    countdownInterval = setInterval(() => {
+        count--;
+        elements.countdownTimer.textContent = count;
+        if (count <= 0) {
+            clearInterval(countdownInterval);
+            stopSound('countdown');
+            isSettled ? finalizeRound(settledTeam) : showWinner();
+        }
+    }, 1000);
 }
 
 function showWinner() {
-    // ... (This function is now correct)
+    const winnerTeam = state.girlsScore >= state.boysScore ? "girls" : "boys";
+    finalizeRound(winnerTeam);
 }
 
 function finalizeRound(winnerTeam) {
     playSound('win');
-    state[`${winnerTeam}RoundsWon`]++;
+    const finalScore = state[`${winnerTeam}Score`];
+    const roundsWon = Math.floor(finalScore / WINNING_SCORE);
+    state[`${winnerTeam}RoundsWon`] += roundsWon > 0 ? roundsWon : 1;
+
     const winnerName = winnerTeam === "girls" ? "البنات" : "الشباب";
     elements.winnerNameElement.textContent = winnerName;
     elements.winnerAvatar.src = document.querySelector(`#${winnerTeam}-card .team-avatar`).src;
@@ -136,16 +142,7 @@ function finalizeRound(winnerTeam) {
 }
 
 
-function launchConfetti() {
-    elements.confettiContainer.innerHTML = '';
-    for (let i = 0; i < 100; i++) {
-        const c = document.createElement('div');
-        c.className = 'confetti';
-        c.style.left = `${Math.random()*100}vw`; c.style.animationDelay = `${Math.random()*2}s`;
-        c.style.backgroundColor=['#ff478a', '#00e1ff', '#ffd700', '#ffffff'][Math.floor(Math.random()*4)];
-        elements.confettiContainer.appendChild(c);
-    }
-}
+function launchConfetti() { /* ... */ }
 
 function showSummary(text, onConfirm) {
     elements.summaryText.innerHTML = text;
@@ -182,26 +179,21 @@ function applyCardEffect(effect, team) {
     let target = effect.Target === 'OPPONENT' ? opponent : team;
     let summaryText = "";
     
-    // Play sound first
     if (effect.Sound_Effect) playSound(effect.Sound_Effect.replace('.mp3', ''));
     else if (['SUBTRACT_POINTS', 'RESET_SCORE', 'LOSE_QUARTER_SCORE', 'REVERSE_CHARITY', 'SUBTRACT_HALF_OPPONENT_SCORE', 'HALVE_IF_OVER_100', 'HALVE_SCORE', 'GENEROSITY'].includes(effect.Effect_Type)) playSound('negative_effect');
     else if (!['NO_EFFECT', 'MANUAL_EFFECT', 'SHOW_IMAGE', 'GAMBLE', 'PLAYER_CHOICE_RISK'].includes(effect.Effect_Type)) playSound('positive_effect');
 
-    // Veto check for negative effects
     const isNegative = ['SUBTRACT_POINTS', 'RESET_SCORE', 'STEAL_POINTS', 'LOSE_QUARTER_SCORE', 'REVERSE_CHARITY', 'SUBTRACT_HALF_OPPONENT_SCORE', 'HALVE_IF_OVER_100', 'HALVE_SCORE', 'GENEROSITY'].includes(effect.Effect_Type);
     if (isNegative && state.veto[target]) {
-        if (confirm(`فريق ${target === 'girls' ? 'البنات' : 'الشباب'} يمتلك الفيتو! هل تريد استخدامه لإلغاء هذا الحكم؟`)) {
+        if (confirm(`فريق ${target === 'girls' ? 'البنات' : 'الشباب'} يمتلك حق الفيتو! هل تريد استخدامه لإلغاء هذا الحكم؟`)) {
             state.veto[target] = false;
             playSound('positive_effect');
             showSummary(`تم استخدام الفيتو لإلغاء حكم "${effect.Card_Title}"!`, () => { updateAllUI(); saveState(); checkWinner(); });
             return;
         }
     }
-    
-    // Save last negative effect for REVENGE card
-    if(isNegative) { state.lastNegativeEffect = { ...effect }; }
+    if(isNegative && effect.Effect_Type !== 'REVENGE' && effect.Effect_Type !== 'COPYCAT') { state.lastNegativeEffect = { ...effect }; }
 
-    // THE FULL SWITCH STATEMENT
     switch (effect.Effect_Type) {
         case 'ADD_POINTS': if (effect.Target === 'BOTH') { state.girlsScore += value; state.boysScore += value; summaryText = `تمت إضافة ${value} نقطة لكلا الفريقين!`; } else { state[`${target}Score`] += value; summaryText = `تمت إضافة ${value} نقطة لفريق ${target === 'girls' ? 'البنات' : 'الشباب'}.`; } break;
         case 'SUBTRACT_POINTS': state[`${target}Score`] -= value; summaryText = `تم خصم ${value} نقطة من فريق ${target === 'girls' ? 'البنات' : 'الشباب'}.`; break;
@@ -238,12 +230,34 @@ function applyCardEffect(effect, team) {
         default: console.warn('Unknown effect type:', effect.Effect_Type); summaryText = "حدث خطأ غير متوقع!"; break;
     }
     const finalize = () => { updateAllUI(); saveState(); checkWinner(); };
-    showSummary(summaryText, finalize);
+    if (summaryText) { showSummary(summaryText, finalize); } 
+    else { finalize(); }
+}
+
+function updateVisualAids() {
+    ['girls', 'boys'].forEach(team => {
+        const container = elements[`${team}StatusIcons`];
+        if (!container) return;
+        container.innerHTML = '';
+        const effects = state.activeEffects[team] || {};
+        if (state.veto[team]) container.innerHTML += `<div class="status-icon" title="فيتو">⚖️</div>`;
+        if (effects.freeze > 0) container.innerHTML += `<div class="status-icon" title="تجميد">❄️<span>${effects.freeze}</span></div>`;
+        if (effects.immunity > 0) container.innerHTML += `<div class="status-icon" title="حصانة">🛡️<span>${effects.immunity}</span></div>`;
+        if (effects.double_next_q > 0) container.innerHTML += `<div class="status-icon" title="نقاط مضاعفة">x2</div>`;
+        if (effects.shield > 0) container.innerHTML += `<div class="status-icon" title="درع عاكس">🔄</div>`;
+        if (effects.taxes > 0) container.innerHTML += `<div class="status-icon" title="ضرائب">💰<span>${effects.taxes}</span></div>`;
+        if (effects.sabotage > 0) container.innerHTML += `<div class="status-icon" title="تخريب">💣<span>${effects.sabotage}</span></div>`;
+        if (effects.golden_goose > 0) container.innerHTML += `<div class="status-icon" title="إوزة ذهبية">🥚<span>${effects.golden_goose}</span></div>`;
+        if (effects.winning_streak > 0) container.innerHTML += `<div class="status-icon" title="سلسلة انتصارات">🔥<span>${effects.winning_streak}</span></div>`;
+        if (effects.leech > 0) container.innerHTML += `<div class="status-icon" title="طفيلي">🦠<span>${effects.leech}</span></div>`;
+        if (state.activeEffects.girls?.inflation > 0) container.innerHTML += `<div class="status-icon" title="تضخم">📈<span>${state.activeEffects.girls.inflation}</span></div>`;
+        if (effects.social_effect > 0) container.innerHTML += `<div class="status-icon" title="تأثير اجتماعي">🎭<span>${effects.social_effect}</span></div>`;
+    });
 }
 
 function showInteractiveModal(effect, team) {
-    const opponent = team === 'girls' ? 'boys' : 'girls';
     hideAllModals();
+    const opponent = team === 'girls' ? 'boys' : 'girls';
     elements.interactiveTitle.textContent = effect.Card_Title;
     elements.interactiveDescription.textContent = effect.Card_Description;
     elements.interactiveButtons.innerHTML = '';
@@ -269,9 +283,9 @@ function showInteractiveModal(effect, team) {
             successBtn.onclick = () => { state.girlsScore += points; hideModal(elements.interactiveModal); showSummary(`تمت إضافة ${points} نقطة للبنات.`, () => { updateAllUI(); saveState(); checkWinner(); }); };
             failBtn.onclick = () => { state.boysScore += points; hideModal(elements.interactiveModal); showSummary(`تمت إضافة ${points} نقطة للشباب.`, () => { updateAllUI(); saveState(); checkWinner(); }); };
         } else {
-            const points = parseInt(effect.Effect_Value);
-            successBtn.textContent = `نجح (+${points})`;
-            successBtn.onclick = () => { state[`${team}Score`] += points; hideModal(elements.interactiveModal); showSummary(`تمت إضافة ${points} نقطة.`, () => { updateAllUI(); saveState(); checkWinner(); }); };
+             const points = parseInt(effect.Effect_Value);
+             successBtn.textContent = `نجح (+${points})`;
+             successBtn.onclick = () => { state[`${team}Score`] += points; hideModal(elements.interactiveModal); showSummary(`تمت إضافة ${points} نقطة.`, () => { updateAllUI(); saveState(); checkWinner(); }); };
         }
         elements.interactiveButtons.append(successBtn, failBtn);
     } else if (['support', 'deduct', 'manual_add', 'manual_subtract', 'manual_multiply', 'manual_multiply_subtract'].includes(configType)) {
@@ -303,19 +317,26 @@ function showInteractiveModal(effect, team) {
             btn2.onclick = () => { hideModal(elements.interactiveModal); showSummary("سيتم اللعب مع الخصم لنهاية الجولة!", () => checkWinner()); };
             elements.interactiveButtons.append(btn1, btn2);
         }
-    } else { // info, info_tracker
-        const closeBtn = document.createElement('button'); closeBtn.textContent = 'تم';
-        closeBtn.className = 'interactive-btn-confirm';
-        closeBtn.onclick = () => {
-            if (configType === 'info_tracker') {
-                const duration = parseInt(configParams.split('(')[1]);
-                if (!state.activeEffects[opponent]) state.activeEffects[opponent] = {};
-                state.activeEffects[opponent].social_effect = duration;
-            }
-            hideModal(elements.interactiveModal);
-            updateAllUI();
-            checkWinner();
+    } else if (effect.Effect_Type === 'GAMBLE') {
+        const result = Math.random() < 0.5 ? 50 : -30;
+        const resultText = result > 0 ? `لقد ربحت ${result} نقطة!` : `لقد خسرت ${Math.abs(result)} نقطة!`;
+        const finalize = () => {
+            state[`${team}Score`] += result;
+            updateAllUI(); saveState(); checkWinner();
         };
+        showSummary(resultText, finalize);
+    } else if (configType.startsWith('info_tracker')) {
+        const duration = parseInt(configParams) || 0;
+        if (!state.activeEffects[opponent]) state.activeEffects[opponent] = {};
+        state.activeEffects[opponent].social_effect = duration;
+        updateAllUI();
+        saveState();
+        const closeBtn = document.createElement('button'); closeBtn.textContent = 'تم'; closeBtn.className = 'interactive-btn-confirm';
+        closeBtn.onclick = () => hideModal(elements.interactiveModal);
+        elements.interactiveButtons.append(closeBtn);
+    } else { // info, default
+        const closeBtn = document.createElement('button'); closeBtn.textContent = 'تم';
+        closeBtn.className = 'interactive-btn-confirm'; closeBtn.onclick = () => hideModal(elements.interactiveModal);
         elements.interactiveButtons.append(closeBtn);
     }
     
@@ -333,7 +354,10 @@ function showInteractiveModal(effect, team) {
             }
         }, 1000);
     }
-    showModal(elements.interactiveModal);
+
+    if (effect.Effect_Type !== 'GAMBLE') {
+        showModal(elements.interactiveModal);
+    }
 }
 
 // --- INITIALIZATION & EVENT LISTENERS ---
@@ -356,6 +380,39 @@ async function initializeGame() {
         elements.resetRoundBtn.disabled = false;
         elements.settleRoundBtn.disabled = false;
     } catch (error) { document.body.innerHTML = `<h1>فشل تحميل بيانات اللعبة</h1><p>${error.message}</p>`; }
+}
+
+function awardPointsForQuestion(winningTeam) {
+    let pointsFromQuestion = QUESTION_POINTS;
+    const opponent = winningTeam === 'girls' ? 'boys' : 'girls';
+
+    if (state.activeEffects[winningTeam]?.freeze > 0) {
+        showSummary(`فريق ${winningTeam === 'girls' ? 'البنات' : 'الشباب'} مُجَمَّد ولم يحصل على نقاط!`);
+        state.questionHistory.push({team: winningTeam, points: 0});
+        if(state.questionHistory.length > 5) state.questionHistory.shift();
+        return;
+    }
+
+    if (state.activeEffects.girls?.inflation > 0) pointsFromQuestion *= 2;
+    if (state.activeEffects[winningTeam]?.double_next_q > 0) { pointsFromQuestion *= 2; state.activeEffects[winningTeam].double_next_q = 0; }
+    if (state.activeEffects[winningTeam]?.golden_goose > 0) pointsFromQuestion += 10;
+    if (state.activeEffects[winningTeam]?.winning_streak > 0) { pointsFromQuestion += 10 * state.activeEffects[winningTeam].winning_streak; state.activeEffects[winningTeam].winning_streak++; }
+    if (state.activeEffects[opponent]?.winning_streak > 0) { state.activeEffects[opponent].winning_streak = 0; }
+    if (state.activeEffects[winningTeam]?.sabotage > 0) pointsFromQuestion = roundToNearestFive(pointsFromQuestion / 2);
+    
+    if (state.activeEffects[opponent]?.taxes > 0) {
+        const taxAmount = roundToNearestFive(pointsFromQuestion * 0.25);
+        state[`${opponent}Score`] += taxAmount;
+        pointsFromQuestion -= taxAmount;
+    }
+    if (state.activeEffects[opponent]?.leech > 0) {
+        state[`${opponent}Score`] += roundToNearestFive(pointsFromQuestion / 2);
+    }
+    
+    state[`${winningTeam}Score`] += pointsFromQuestion;
+    state.questionHistory.push({team: winningTeam, points: pointsFromQuestion});
+    if(state.questionHistory.length > 5) state.questionHistory.shift();
+    updateAllUI();
 }
 
 function attachEventListeners() {
@@ -395,36 +452,7 @@ function attachEventListeners() {
             playSound('point');
             hideModal(elements.questionModal);
             
-            let pointsFromQuestion = QUESTION_POINTS;
-            const opponent = winningTeam === 'girls' ? 'boys' : 'girls';
-
-            if (state.activeEffects[winningTeam]?.freeze > 0) {
-                showSummary(`فريق ${winningTeam === 'girls' ? 'البنات' : 'الشباب'} مُجَمَّد ولم يحصل على نقاط!`);
-                state.questionHistory.push({team: winningTeam, points: 0});
-                if(state.questionHistory.length > 5) state.questionHistory.shift();
-                return;
-            }
-
-            if (state.activeEffects.girls?.inflation > 0) pointsFromQuestion *= 2;
-            if (state.activeEffects[winningTeam]?.double_next_q > 0) { pointsFromQuestion *= 2; state.activeEffects[winningTeam].double_next_q = 0; }
-            if (state.activeEffects[winningTeam]?.golden_goose > 0) pointsFromQuestion += 10;
-            if (state.activeEffects[winningTeam]?.winning_streak > 0) { pointsFromQuestion += 10 * state.activeEffects[winningTeam].winning_streak; state.activeEffects[winningTeam].winning_streak++; }
-            if (state.activeEffects[opponent]?.winning_streak > 0) { state.activeEffects[opponent].winning_streak = 0; }
-            if (state.activeEffects[winningTeam]?.sabotage > 0) pointsFromQuestion = roundToNearestFive(pointsFromQuestion / 2);
-            
-            if (state.activeEffects[opponent]?.taxes > 0) {
-                const taxAmount = roundToNearestFive(pointsFromQuestion * 0.25);
-                state[`${opponent}Score`] += taxAmount;
-                pointsFromQuestion -= taxAmount;
-            }
-            if (state.activeEffects[opponent]?.leech > 0) {
-                state[`${opponent}Score`] += roundToNearestFive(pointsFromQuestion / 2);
-            }
-            
-            state[`${winningTeam}Score`] += pointsFromQuestion;
-            state.questionHistory.push({team: winningTeam, points: pointsFromQuestion});
-            if(state.questionHistory.length > 5) state.questionHistory.shift();
-            updateAllUI();
+            awardPointsForQuestion(winningTeam);
             
             if (state.questionNumber % 2 === 0) {
                 displayCardVault(winningTeam);
@@ -505,6 +533,7 @@ function attachEventListeners() {
                 supporterCard.className = 'supporter-card';
                 supporterCard.innerHTML = `<img src="${photoDataUrl}" alt="${supporterName}"><p>👑 ${supporterName}</p>`;
                 list.appendChild(supporterCard);
+                
                 elements.announcementPhoto.src = photoDataUrl;
                 elements.announcementText.innerHTML = `🛡️ ${supporterName}<br>ينضم كدرع لفريق ${selectedTeam === 'girls' ? 'البنات' : 'الشباب'}!`;
                 playSound('supporter');
