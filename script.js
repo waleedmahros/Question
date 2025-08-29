@@ -307,7 +307,7 @@ function applyCardEffect(effect, team) {
                     console.log(`تطبيق الأعمال الخيرية العكسية: ${reverseCharityAmount} نقطة من ${lower} إلى ${higher}`);
                 }
             } else {
-                console.log('الفريقان متعادلان، لا حاجة للأعمال الخيرية العكسية');
+                console.log('الفريقان متعادلان، لا حاجة للأعمال الخيرية');
             }
             break;
         
@@ -696,8 +696,8 @@ function attachEventListeners() {
     });
 
     elements.awardButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const team = button.dataset.team;
+        button.addEventListener('click', (event) => {
+            const team = event.target.dataset.team;
             const opponent = team === 'girls' ? 'boys' : 'girls';
 
             if (state.activeEffects[team] && state.activeEffects[team].freeze > 0) {
@@ -707,20 +707,10 @@ function attachEventListeners() {
 
             awardPoints(team, QUESTION_POINTS);
             hideModal(elements.questionModal);
-            displayCardVault(team);
-        });
-    });
-        button.addEventListener('click', (event) => {
-            if (!state.gameActive) return;
-            const winningTeam = event.target.dataset.team;
-            playSound('point');
-            hideModal(elements.questionModal);
             
-            state[`${winningTeam}Score`] += QUESTION_POINTS;
-            updateAllUI();
-            
+            // Check if it's time to display a card
             if (state.questionNumber % 2 === 0) {
-                displayCardVault(winningTeam);
+                displayCardVault(team);
             } else {
                 checkWinner();
             }
@@ -849,3 +839,5 @@ function diagnoseGameState() {
 
 // --- INITIALIZE ---
 initializeGame();
+
+
