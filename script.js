@@ -288,19 +288,40 @@ function showInteractiveModal(effect, team) {
 async function initializeGame() {
     loadState();
     updateAllUI();
-    attachEventListeners();
+    // لا تقم بربط الأزرار الآن، انتظر حتى يتم تحميل كل شيء
+
     try {
         const [qRes, cRes] = await Promise.all([fetch(QUESTIONS_SHEET_URL), fetch(CARDS_SHEET_URL)]);
         if (!qRes.ok || !cRes.ok) throw new Error('Network error');
+        
         const qData = await qRes.json();
         const cData = await cRes.json();
+        
         allQuestions = (qData.values || []).slice(1).map(row => ({ id: row[0], type: row[1], question_text: row[2], image_url: row[3], answer: row[4], category: row[5] || 'عام' })).filter(q => q.id);
         allCards = (cData.values || []).slice(1).map(row => ({ Card_Title: row[0], Card_Description: row[1], Effect_Type: row[2], Effect_Value: row[3], Target: row[4], Manual_Config: row[5] || '', Sound_Effect: row[6] || '' })).filter(c => c.Card_Title);
+        
         availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
-        if (allCards.length > 0) { shuffleAndPrepareCards(); }
-        else { console.error("CRITICAL: No cards loaded."); alert("لم يتم تحميل الكروت! تأكد من اسم التاب وإعدادات المشاركة."); }
-    } catch (error) { document.body.innerHTML = `<h1>فشل تحميل بيانات اللعبة</h1><p>${error.message}</p>`; }
+        
+        if (allCards.length > 0) {
+            shuffleAndPrepareCards();
+        } else {
+            console.error("CRITICAL: No cards were loaded.");
+        }
+
+        // ===== الآن كل شيء جاهز، قم بتفعيل الأزرار وربط الأوامر =====
+        attachEventListeners();
+        elements.nextQuestionBtn.textContent = "السؤال التالي";
+        elements.nextQuestionBtn.disabled = false;
+        elements.resetRoundBtn.disabled = false;
+        elements.settleRoundBtn.disabled = false;
+        
+        console.log("Game Initialized Successfully.");
+
+    } catch (error) { 
+        document.body.innerHTML = `<h1>فشل تحميل بيانات اللعبة</h1><p>${error.message}</p><p>تأكد من صحة الرابط ومفتاح API وإعدادات المشاركة للجدول.</p>`; 
+    }
 }
+
 
 function attachEventListeners() {
     elements.nextQuestionBtn.addEventListener('click', () => {
