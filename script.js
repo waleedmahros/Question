@@ -190,7 +190,7 @@ function shuffleAndPrepareCards() { let s = [...allCards].sort(() => 0.5 - Math.
 function displayCardVault(winningTeam) { if (!elements.cardVaultModal || allCards.length === 0) { checkWinner(); return; } hideAllModals(); elements.cardGrid.innerHTML = ''; for (let i = 1; i <= allCards.length; i++) { const c = document.createElement('button'); c.className = 'card-button'; c.textContent = i; if (state.usedCardNumbers.includes(i)) { c.classList.add('used'); c.disabled = true; } c.addEventListener('click', () => handleCardClick(i, winningTeam)); elements.cardGrid.appendChild(c); } showModal(elements.cardVaultModal); }
 function handleCardClick(cardNumber, winningTeam) {
     if (state.usedCardNumbers.includes(cardNumber)) return;
-    playSound('card_reveal');
+    playSound("card_reveal");
     const effect = state.shuffledCards[cardNumber];
     elements.revealCardTitle.textContent = effect.Card_Title;
     elements.revealCardDescription.textContent = effect.Card_Description;
@@ -201,6 +201,11 @@ function handleCardClick(cardNumber, winningTeam) {
     };
     hideModal(elements.cardVaultModal);
     showModal(elements.revealCardModal);
+    // تشغيل الصوت المخصص للكارت هنا
+    if (effect.Sound_Effect) {
+        console.log(`تشغيل الصوت المخصص للكارت: ${effect.Sound_Effect}`);
+        playSound(effect.Sound_Effect);
+    }
 }
 
 function roundToNearestFive(num) { return Math.floor(num / 5) * 5; }
@@ -208,29 +213,25 @@ function roundToNearestFive(num) { return Math.floor(num / 5) * 5; }
 // تحسين دالة applyCardEffect مع debugging مفصل
 function applyCardEffect(effect, team) {
     // إضافة تسجيل مفصل للتشخيص
-    console.log('=== تطبيق تأثير الكارت ===');
-    console.log('اسم الكارت:', effect.Card_Title);
-    console.log('نوع التأثير:', effect.Effect_Type);
-    console.log('قيمة التأثير:', effect.Effect_Value);
-    console.log('الهدف:', effect.Target);
-    console.log('الفريق المطبق:', team);
-    console.log('الصوت:', effect.Sound_Effect);
+    console.log("=== تطبيق تأثير الكارت ===");
+    console.log("اسم الكارت:", effect.Card_Title);
+    console.log("نوع التأثير:", effect.Effect_Type);
+    console.log("قيمة التأثير:", effect.Effect_Value);
+    console.log("الهدف:", effect.Target);
+    console.log("الفريق المطبق:", team);
+    // تم نقل تشغيل الصوت المخصص إلى handleCardClick
     
-    const opponent = team === 'girls' ? 'boys' : 'girls';
+    const opponent = team === "girls" ? "boys" : "girls";
     const value = parseInt(effect.Effect_Value) || 0;
-    let target = effect.Target === 'OPPONENT' ? opponent : team;
+    let target = effect.Target === "OPPONENT" ? opponent : team;
     let effectApplied = true;
 
-    // تشغيل الصوت المخصص أو الافتراضي
-    if (effect.Sound_Effect) { 
-        console.log(`تشغيل الصوت المخصص: ${effect.Sound_Effect}`);
-        playSound(effect.Sound_Effect); 
+    // تشغيل الصوت الافتراضي للتأثيرات العامة
+    if (["SUBTRACT_POINTS", "RESET_SCORE", "LOSE_QUARTER_SCORE", "REVERSE_CHARITY", "SUBTRACT_HALF_OPPONENT_SCORE", "HALVE_IF_OVER_100", "HALVE_SCORE", "GENEROSITY"].includes(effect.Effect_Type)) { 
+        playSound("negative_effect"); 
     }
-    else if (['SUBTRACT_POINTS', 'RESET_SCORE', 'LOSE_QUARTER_SCORE', 'REVERSE_CHARITY', 'SUBTRACT_HALF_OPPONENT_SCORE', 'HALVE_IF_OVER_100', 'HALVE_SCORE', 'GENEROSITY'].includes(effect.Effect_Type)) { 
-        playSound('negative_effect'); 
-    }
-    else if (effect.Effect_Type !== 'NO_EFFECT' && effect.Effect_Type !== 'MANUAL_EFFECT' && effect.Effect_Type !== 'SHOW_IMAGE') { 
-        playSound('positive_effect'); 
+    else if (effect.Effect_Type !== "NO_EFFECT" && effect.Effect_Type !== "MANUAL_EFFECT" && effect.Effect_Type !== "SHOW_IMAGE" && effect.Sound_Effect === "") { 
+        playSound("positive_effect"); 
     }
 
     console.log(`النقاط قبل التطبيق - البنات: ${state.girlsScore}, الشباب: ${state.boysScore}`);
@@ -616,12 +617,59 @@ async function initializeGame() {
     } catch (error) { document.body.innerHTML = `<h1>فشل تحميل بيانات اللعبة</h1><p>${error.message}</p>`; }
 }
 
+function awardPoints(team, points) {
+    const opponent = team === 'girls' ? 'boys' : 'girls';
+    let finalPoints = points;
+
+    // 1. تحقق من تأثيرات الفريق الفائز
+    if (state.activeEffects[team]) {
+        if (state.activeEffects[team].double_next_q > 0) {
+            finalPoints *= 2;
+            state.activeEffects[team].double_next_q = 0; // استخدم التأثير مرة واحدة
+        }
+        if (state.activeEffects[team].inflation > 0) {
+            finalPoints *= 1.5; // زيادة 50%
+        }
+        if (state.activeEffects[team].winning_streak > 0) {
+            finalPoints += 10 * state.activeEffects[team].winning_streak;
+            state.activeEffects[team].winning_streak++;
+        }
+        if (state.activeEffects[team].golden_goose > 0) {
+            finalPoints += 10;
+        }
+    }
+
+    // 2. تحقق من تأثيرات الفريق الخصم
+    if (state.activeEffects[opponent]) {
+        if (state.activeEffects[opponent].shield > 0) {
+            // عكس النقاط
+            state[`${opponent}Score`] += finalPoints;
+            state.activeEffects[opponent].shield--;
+            updateAllUI();
+            saveState();
+            checkWinner();
+            return; // لا تكمل إضافة النقاط للفريق الأصلي
+        }
+        if (state.activeEffects[opponent].sabotage > 0) {
+            finalPoints *= 0.5; // خصم 50%
+        }
+        if (state.activeEffects[opponent].leech > 0) {
+            state[`${opponent}Score`] += Math.round(finalPoints * 0.25);
+        }
+    }
+
+    state[`${team}Score`] += Math.round(finalPoints);
+    updateAllUI();
+    saveState();
+    checkWinner();
+}
+
 function attachEventListeners() {
     elements.nextQuestionBtn.addEventListener('click', () => {
         playSound('click');
         if (!state.gameActive) { alert("الجولة متوقفة حالياً!"); return; }
         if (availableQuestions.length === 0) { alert("انتهت جميع الأسئلة!"); return; }
-        
+
         // Decrement active effects timers
         ['girls', 'boys'].forEach(team => {
             if (state.activeEffects[team]) {
@@ -648,6 +696,20 @@ function attachEventListeners() {
     });
 
     elements.awardButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const team = button.dataset.team;
+            const opponent = team === 'girls' ? 'boys' : 'girls';
+
+            if (state.activeEffects[team] && state.activeEffects[team].freeze > 0) {
+                alert(`فريق ${team} مجمد ولا يمكنه الإجابة!`);
+                return;
+            }
+
+            awardPoints(team, QUESTION_POINTS);
+            hideModal(elements.questionModal);
+            displayCardVault(team);
+        });
+    });
         button.addEventListener('click', (event) => {
             if (!state.gameActive) return;
             const winningTeam = event.target.dataset.team;
