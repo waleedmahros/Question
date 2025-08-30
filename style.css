@@ -655,7 +655,7 @@ footer button:disabled {
     width: 10px;
     height: 20px;
     opacity: 0;
-    animation: confetti-fall 10s linear;
+    animation: confetti-fall 5s linear;
 }
 
 #supporter-form {
