@@ -105,7 +105,6 @@ function startNewRound() {
     if (allCards.length > 0) {
         shuffleAndPrepareCards();
     }
-    // FIX: Ensure main buttons are enabled at the start of a round
     elements.settleRoundBtn.disabled = false;
     elements.resetRoundBtn.disabled = false;
     state.gameActive = true;
@@ -133,7 +132,6 @@ function checkWinner() {
 }
 
 function triggerWinSequence(isSettled = false, settledTeam = null) {
-    // FIX: Disable main buttons when win sequence starts
     elements.settleRoundBtn.disabled = true;
     elements.resetRoundBtn.disabled = true;
 
@@ -195,15 +193,15 @@ function showSummary(text, onConfirm) {
 
 // --- CARD GAME LOGIC ---
 function shuffleAndPrepareCards() { let s = [...allCards].sort(() => 0.5 - Math.random()); state.shuffledCards = {}; for (let i = 0; i < s.length; i++) { state.shuffledCards[i + 1] = s[i]; } state.usedCardNumbers = []; }
+
 function displayCardVault(winningTeam) {
-    // FIX: Reshuffle cards if all have been used
     if (allCards.length > 0 && state.usedCardNumbers.length >= allCards.length) {
         showSummary("تم استخدام جميع الكروت! سيتم إعادة خلطها الآن.", () => {
             shuffleAndPrepareCards();
             saveState();
-            displayCardVault(winningTeam); // Re-open the vault with fresh cards
+            displayCardVault(winningTeam); 
         });
-        return; // Stop execution to wait for user confirmation
+        return; 
     }
 
     if (!elements.cardVaultModal || allCards.length === 0) { checkWinner(); return; } 
@@ -212,6 +210,7 @@ function displayCardVault(winningTeam) {
     for (let i = 1; i <= allCards.length; i++) { const c = document.createElement('button'); c.className = 'card-button'; c.textContent = i; if (state.usedCardNumbers.includes(i)) { c.classList.add('used'); c.disabled = true; } c.addEventListener('click', () => handleCardClick(i, winningTeam)); elements.cardGrid.appendChild(c); } 
     showModal(elements.cardVaultModal); 
 }
+
 function handleCardClick(cardNumber, winningTeam) {
     if (state.usedCardNumbers.includes(cardNumber)) return;
     
@@ -236,7 +235,6 @@ function handleCardClick(cardNumber, winningTeam) {
 
 function roundToNearestFive(num) { return Math.floor(num / 5) * 5; }
 
-// HELPER FUNCTION to simulate card effects for advanced logic
 function getPotentialScores(effect, team, currentState) {
     const opponent = team === 'girls' ? 'boys' : 'girls';
     let potentialScores = { girls: currentState.girlsScore, boys: currentState.boysScore };
@@ -244,7 +242,6 @@ function getPotentialScores(effect, team, currentState) {
     const target = effect.Target === 'OPPONENT' ? opponent : team;
 
     switch (effect.Effect_Type) {
-        // Negative Effects
         case 'SUBTRACT_POINTS': potentialScores[target] -= value; break;
         case 'STEAL_POINTS': potentialScores[team] += value; potentialScores[opponent] -= value; break;
         case 'RESET_SCORE': potentialScores[target] = 0; break;
@@ -259,8 +256,6 @@ function getPotentialScores(effect, team, currentState) {
             potentialScores[team] -= pointsToMove;
             potentialScores[opponent] += pointsToMove;
             break;
-
-        // Indirectly Negative / Game State Changing Effects
         case 'EQUALIZE_SCORES':
             const total = potentialScores.girls + potentialScores.boys;
             const avg = roundToNearestFive(Math.floor(total / 2));
@@ -287,8 +282,6 @@ function getPotentialScores(effect, team, currentState) {
         case 'SWAP_SCORES':
             [potentialScores.girls, potentialScores.boys] = [potentialScores.boys, potentialScores.girls];
             break;
-
-        // Positive Effects (for Veto check)
         case 'ADD_POINTS':
             if (effect.Target === 'BOTH') {
                 potentialScores.girls += value; potentialScores.boys += value;
@@ -318,49 +311,47 @@ function applyCardEffect(effect, team) {
     const isNegative = ['SUBTRACT_POINTS', 'RESET_SCORE', 'STEAL_POINTS', 'LOSE_QUARTER_SCORE', 'REVERSE_CHARITY', 'SUBTRACT_HALF_OPPONENT_SCORE', 'HALVE_IF_OVER_100', 'HALVE_SCORE', 'GENEROSITY'].includes(effect.Effect_Type);
     const effectsThatCanCausePointLoss = ['SUBTRACT_POINTS', 'STEAL_POINTS', 'RESET_SCORE', 'HALVE_SCORE', 'LOSE_QUARTER_SCORE', 'SUBTRACT_HALF_OPPONENT_SCORE', 'GENEROSITY', 'EQUALIZE_SCORES', 'CHARITY', 'REVERSE_CHARITY', 'SWAP_SCORES'];
     
-    // --- ADVANCED SHIELD LOGIC ---
-    if (state.activeEffects[target]?.immunity > 0 && effectsThatCanCausePointLoss.includes(effect.Effect_Type)) {
-        const potentialScores = getPotentialScores(effect, team, state);
-        if (potentialScores[target] < state[`${target}Score`]) {
-            playSound('negative_effect');
-            showSummary(`الدرع الواقي منع خسارة النقاط من حكم "${effect.Card_Title}"!`, () => {
-                updateAllUI(); saveState(); checkWinner();
+    if (!effect.Veto_Applied) {
+        if (state.activeEffects[target]?.immunity > 0 && effectsThatCanCausePointLoss.includes(effect.Effect_Type)) {
+            const potentialScores = getPotentialScores(effect, team, state);
+            if (potentialScores[target] < state[`${target}Score`]) {
+                playSound('negative_effect');
+                showSummary(`الدرع الواقي منع خسارة النقاط من حكم "${effect.Card_Title}"!`, () => {
+                    updateAllUI(); saveState(); checkWinner();
+                });
+                return;
+            }
+        }
+
+        if(isNegative && state.activeEffects[target]?.shield > 0) {
+            state.activeEffects[target].shield = 0;
+            summaryText = `الدرع العاكس صد هجوم "${effect.Card_Title}" وعكسه على الخصم!`;
+            showSummary(summaryText, () => {
+                applyCardEffect(effect, opponent); 
             });
             return;
         }
-    }
-
-    if(isNegative && state.activeEffects[target]?.shield > 0) {
-        state.activeEffects[target].shield = 0;
-        summaryText = `الدرع العاكس صد هجوم "${effect.Card_Title}" وعكسه على الخصم!`;
-        showSummary(summaryText, () => {
-            applyCardEffect(effect, opponent); 
-        });
-        return;
-    }
-    
-    // --- ADVANCED VETO LOGIC ---
-    // 1. Defensive Veto (direct negative attack)
-    if (isNegative && state.veto[target]) {
-        showInteractiveModal({ ...effect, Manual_Config: 'veto_choice' }, target);
-        return;
-    }
-    // 2. Strategic Veto (block opponent's win)
-    if (state.veto[opponent]) {
-        const potentialScores = getPotentialScores(effect, team, state);
-        if (potentialScores[team] >= WINNING_SCORE && state[`${team}Score`] < WINNING_SCORE) {
-            const customEffect = {
-                ...effect,
-                Manual_Config: 'veto_choice',
-                Card_Description: `فريق ${team === 'girls' ? 'البنات' : 'الشباب'} على وشك الفوز بالجولة بهذا الكارت! هل تريدون استخدام الفيتو لإلغاء تأثيره؟`,
-                Card_Title: 'اعتراض استراتيجي'
-            };
-            showInteractiveModal(customEffect, opponent);
+        
+        if (isNegative && state.veto[target]) {
+            showInteractiveModal({ ...effect, Manual_Config: 'veto_choice' }, target);
             return;
         }
+
+        if (state.veto[opponent]) {
+            const potentialScores = getPotentialScores(effect, team, state);
+            if (potentialScores[team] >= WINNING_SCORE && state[`${team}Score`] < WINNING_SCORE) {
+                 const customEffect = {
+                     ...effect,
+                     Manual_Config: 'veto_choice',
+                     Card_Description: `فريق ${team === 'girls' ? 'البنات' : 'الشباب'} على وشك الفوز بالجولة بهذا الكارت! هل تريدون استخدام الفيتو لإلغاء تأثيره؟`,
+                     Card_Title: 'اعتراض استراتيجي'
+                 };
+                 showInteractiveModal(customEffect, opponent);
+                 return;
+            }
+        }
     }
-    
-    // Play sound effects after checks are done
+
     if(!effect.Sound_Effect){
         if (isNegative) playSound('negative_effect');
         else if (!['NO_EFFECT', 'MANUAL_EFFECT', 'SHOW_IMAGE', 'GAMBLE', 'PLAYER_CHOICE_RISK'].includes(effect.Effect_Type)) playSound('positive_effect');
@@ -384,7 +375,7 @@ function applyCardEffect(effect, team) {
         case 'LOSE_QUARTER_SCORE': if (state[`${target}Score`] > 0) { const old = state[`${target}Score`]; state[`${target}Score`] = roundToNearestFive(state[`${target}Score`] * 0.75); summaryText = `تم خصم ربع نقاطك من ${old} إلى ${state[`${target}Score`]}.`; } else { summaryText = `نقاطك ليست موجبة، أنت في أمان.`; } break;
         case 'SUBTRACT_HALF_OPPONENT_SCORE': if (state[`${opponent}Score`] > 0) { const amountToSubtract = roundToNearestFive(Math.floor(state[`${opponent}Score`] / 2)); state[`${team}Score`] -= amountToSubtract; summaryText = `يا خسارة! تم خصم ${amountToSubtract} نقطة منك.`; } else { summaryText = `نقاط الخصم ليست موجبة، نجوت!`; } break;
         case 'CONDITIONAL_ADD_GIRLS': const pointsGirls = team === 'girls' ? 30 : 10; state[`${team}Score`] += pointsGirls; summaryText = `تحيز واضح! تمت إضافة ${pointsGirls} نقطة.`; break;
-        case 'CONDITIONAL_ADD_BOYS': const pointsBoys = team === 'boys' ? 30 : 10; state[`${team}Score`] += pointsBoys; summaryText = `ده مش تحيز برضه! تمت إضافة ${pointsBoys} نقطة.`; break;
+        case 'CONDITIONAL_ADD_BOYS': const pointsBoys = team === 'boys' ? 30 : 10; state[`${team}Score`] += pointsBoys; summaryText = `ده مش تحيز برضه! تمت إضافة ${pointsBoys} نقطة.`; } break;
         case 'ROBIN_HOOD': if (state[`${team}Score`] < state[`${opponent}Score`] && state[`${opponent}Score`] > 0) { const robinAmount = roundToNearestFive(Math.floor(state[`${opponent}Score`] * 0.25)); state[`${opponent}Score`] -= robinAmount; state[`${team}Score`] += robinAmount; summaryText = `روبن هود يسرق ${robinAmount} نقطة من الأغنياء للفقراء!`; } else { summaryText = `لا يمكن تطبيق الحكم، أنت لست الأفقر!`; } break;
         case 'IMMUNITY': if(!state.activeEffects[target]) state.activeEffects[target]={}; state.activeEffects[target].immunity = value; summaryText = `تم تفعيل الدرع الواقي لفريق ${target==='girls' ? 'البنات':'الشباب'} لمدة ${value} أسئلة!`; break;
         case 'FREEZE_OPPONENT': if(!state.activeEffects[opponent]) state.activeEffects[opponent]={}; state.activeEffects[opponent].freeze = value; summaryText = `تم تجميد فريق ${opponent==='girls' ? 'البنات':'الشباب'} لمدة ${value} أسئلة!`; break;
@@ -463,7 +454,11 @@ function showInteractiveModal(effect, team) {
         const btn1 = document.createElement('button'); btn1.textContent = "نعم، استخدم الفيتو"; btn1.className = 'interactive-btn-success';
         btn1.onclick = () => { state.veto[team] = false; hideModal(elements.interactiveModal); showSummary(`تم استخدام الفيتو بنجاح!`, () => { updateAllUI(); saveState(); checkWinner(); }); };
         const btn2 = document.createElement('button'); btn2.textContent = "لا، احتفظ به"; btn2.className = 'interactive-btn-fail';
-        btn2.onclick = () => { hideModal(elements.interactiveModal); applyCardEffect({ ...effect, Veto_Applied: true }, team === opponent ? opponent : team); }; // Re-apply without veto check
+        btn2.onclick = () => { 
+            const originalTeam = effect.Target === 'OPPONENT' ? opponent : team;
+            hideModal(elements.interactiveModal); 
+            applyCardEffect({ ...effect, Veto_Applied: true }, originalTeam);
+        };
         elements.interactiveButtons.append(btn1, btn2);
     } else if (configType.startsWith('task')) {
         const successBtn = document.createElement('button'); successBtn.className = 'interactive-btn-success';
@@ -606,7 +601,14 @@ function attachEventListeners() {
             playSound('point');
             hideModal(elements.questionModal);
             
-            // Handle streak logic
+            const pointsFromQuestion = calculateQuestionPoints(winningTeam);
+            
+            if(pointsFromQuestion > 0) state[`${winningTeam}Score`] += pointsFromQuestion;
+            state.questionHistory.push({team: winningTeam, points: pointsFromQuestion});
+            if(state.questionHistory.length > 5) state.questionHistory.shift();
+            
+            updateAllUI();
+
             const opponent = winningTeam === 'girls' ? 'boys' : 'girls';
             if (state.activeEffects[opponent]?.winning_streak > 0) {
                 showSummary(`تم كسر سلسلة انتصارات فريق ${opponent === 'girls' ? 'البنات' : 'الشباب'}!`);
@@ -615,14 +617,6 @@ function attachEventListeners() {
             if (state.activeEffects[winningTeam]?.winning_streak > 0) {
                 state.activeEffects[winningTeam].winning_streak++;
             }
-
-            const pointsFromQuestion = calculateQuestionPoints(winningTeam);
-            
-            if(pointsFromQuestion > 0) state[`${winningTeam}Score`] += pointsFromQuestion;
-            state.questionHistory.push({team: winningTeam, points: pointsFromQuestion});
-            if(state.questionHistory.length > 5) state.questionHistory.shift();
-            
-            updateAllUI();
             
             if (state.questionNumber % 2 === 0) {
                 displayCardVault(winningTeam);
@@ -630,157 +624,6 @@ function attachEventListeners() {
                 checkWinner();
             }
 
-            ['girls', 'boys'].forEach(team => {
-                if (state.activeEffects[team]) {
-                    for (const effect in state.activeEffects[team]) {
-                        const effectObj = state.activeEffects[team][effect];
-                        if (typeof effectObj === 'number' && effectObj > 0 && effect !== 'shield') {
-                            state.activeEffects[team][effect]--;
-                        } else if (effectObj?.duration > 0) {
-                            state.activeEffects[team][effect].duration--;
-                        }
-                    }
-                }
-            });
-            saveState(); 
-        });
-    });
-
-    elements.manualControls.forEach(button => {
-        button.addEventListener('click', e => {
-            playSound('click');
-            const team = e.target.dataset.team;
-            const action = e.target.dataset.action;
-            
-            // The user decided against this, but leaving it commented in case they change their mind
-            /*
-            if (action === 'subtract' && state.activeEffects[team]?.immunity > 0) {
-                showSummary(`فريق ${team === 'girls' ? 'البنات' : 'الشباب'} محصن ضد الخصم اليدوي!`);
-                return;
-            }
-            */
-            if (state.activeEffects[team]?.freeze > 0) {
-                showSummary(`فريق ${team === 'girls' ? 'البنات' : 'الشباب'} مُجَمَّد ولا يمكن تغيير نقاطه!`);
-                return;
-            }
-
-            state[`${team}Score`] += (action === 'add' ? MANUAL_POINTS_STEP : -MANUAL_POINTS_STEP);
-            updateScoresUI();
-            saveState();
-
-            if (action === 'add') {
-                checkWinner();
-            }
-        });
-    });
-
-    elements.roundControls.forEach(button => {
-        button.addEventListener('click', e => {
-            playSound('click');
-            const team = e.target.dataset.team;
-            const isAdd = e.target.classList.contains('add-round-btn');
-            if (isAdd) { state[`${team}RoundsWon`]++; playSound('sparkle'); } 
-            else if (state[`${team}RoundsWon`] > 0) { state[`${team}RoundsWon`]--; }
-            updateRoundsUI();
-            saveState();
-        });
-    });
-
-    elements.stopCountdownBtn.addEventListener('click', () => {
-        playSound('click');
-        clearInterval(countdownInterval);
-        stopSound('countdown');
-        hideModal(elements.celebrationOverlay);
-        state.gameActive = true; 
-        state.countdownActive = false;
-        // Re-enable buttons after stopping countdown
-        elements.settleRoundBtn.disabled = false;
-        elements.resetRoundBtn.disabled = false;
-        saveState();
-    });
-    
-    elements.settleRoundBtn.addEventListener('click', () => {
-        if (state.gameActive) showModal(elements.chooseTeamModal);
-    });
-
-    elements.chooseTeamModal.querySelectorAll('.award-btn').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const team = e.target.dataset.team;
-            hideModal(elements.chooseTeamModal);
-            state.gameActive = false;
-            state.countdownActive = true;
-            triggerWinSequence(true, team);
-        });
-    });
-    
-    elements.addSupporterBtn.addEventListener('click', () => {
-        playSound('click');
-        showModal(elements.supporterModal);
-    });
-
-    elements.supporterForm.addEventListener('submit', (event) => {
-        event.preventDefault();
-        const supporterName = document.getElementById('supporter-name').value;
-        const supporterPhotoInput = document.getElementById('supporter-photo');
-        const selectedTeam = document.querySelector('input[name="team"]:checked').value;
-        if (supporterPhotoInput.files && supporterPhotoInput.files[0]) {
-function attachEventListeners() {
-    elements.nextQuestionBtn.addEventListener('click', () => {
-        playSound('click');
-        if (!state.gameActive) { alert("الجولة متوقفة حالياً!"); return; }
-        if (availableQuestions.length === 0) { alert("انتهت جميع الأسئلة!"); return; }
-        
-        state.questionNumber++;
-        const randIdx = Math.floor(Math.random() * availableQuestions.length);
-        const question = availableQuestions.splice(randIdx, 1)[0];
-        if (!question) return;
-        state.usedQuestionIds.push(question.id);
-        elements.modalQuestionArea.innerHTML = `<p>${question.question_text || ''}</p>`;
-        if (question.image_url) { const img = document.createElement('img'); img.src = question.image_url; elements.modalQuestionArea.appendChild(img); }
-        elements.modalAnswerArea.textContent = question.answer;
-        elements.modalAnswerArea.classList.add('hidden');
-        showModal(elements.questionModal);
-        saveState();
-    });
-
-    elements.awardButtons.forEach(button => {
-        button.addEventListener('click', (event) => {
-            if (!state.gameActive) return;
-            const winningTeam = event.target.dataset.team;
-            playSound('point');
-            hideModal(elements.questionModal);
-            
-            // --- هذا هو الترتيب الصحيح ---
-
-            // 1. حساب النقاط أولاً بناءً على الحالة الحالية
-            const pointsFromQuestion = calculateQuestionPoints(winningTeam);
-            
-            // 2. إضافة النقاط
-            if(pointsFromQuestion > 0) state[`${winningTeam}Score`] += pointsFromQuestion;
-            state.questionHistory.push({team: winningTeam, points: pointsFromQuestion});
-            if(state.questionHistory.length > 5) state.questionHistory.shift();
-            
-            // 3. تحديث الواجهة الرسومية بالنقاط الجديدة
-            updateAllUI();
-            
-            // 4. التعامل مع منطق سلسلة الانتصارات (بعد إضافة نقاط الجولة الحالية)
-            const opponent = winningTeam === 'girls' ? 'boys' : 'girls';
-            if (state.activeEffects[opponent]?.winning_streak > 0) {
-                showSummary(`تم كسر سلسلة انتصارات فريق ${opponent === 'girls' ? 'البنات' : 'الشباب'}!`);
-                state.activeEffects[opponent].winning_streak = 0;
-            }
-            if (state.activeEffects[winningTeam]?.winning_streak > 0) {
-                state.activeEffects[winningTeam].winning_streak++;
-            }
-
-            // 5. التحقق من الفائز أو عرض الكروت
-            if (state.questionNumber % 2 === 0) {
-                displayCardVault(winningTeam);
-            } else {
-                checkWinner();
-            }
-
-            // 6. إنقاص عدادات التأثيرات (آخر خطوة)
             ['girls', 'boys'].forEach(team => {
                 if (state.activeEffects[team]) {
                     for (const effect in state.activeEffects[team]) {
@@ -951,7 +794,7 @@ async function initializeGame() {
 
     loadState();
     availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
-    if (allCards.length > 0 && Object.keys(state.shuffledCards).length === 0) {
+    if (allCards.length > 0 && (!state.shuffledCards || Object.keys(state.shuffledCards).length === 0)) {
        shuffleAndPrepareCards();
     }
     updateAllUI();
