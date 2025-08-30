@@ -1,6 +1,6 @@
 // --- CONFIGURATION ---
 const GOOGLE_SHEET_ID = '1GYDE5x9uumXhWZ2QCTQKdtYtb72izVy0cwPsIQr08ic';
-const API_KEY = 'AIzaSyAc1zPbwDhMh3gc_qdPmNwbgd8ubcrG55o'; // !!!!!!!!!!!!!!!!!!!!!!!!!!! ضع مفتاح API الخاص بك هنا !!!!!!!!!!!!!!!!!!!!!!!!!!!
+const API_KEY = 'AIzaSyAc1zPbwDhMh3gc_qdPmNwbgd8ubcrG55o';
 const QUESTIONS_SHEET_URL = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/1!A:F?key=${API_KEY}`;
 const CARDS_SHEET_URL = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/cards!A:G?key=${API_KEY}`;
 
@@ -68,6 +68,7 @@ const elements = {
 let allQuestions = []; let allCards = [];
 let availableQuestions = [];
 let countdownInterval = null; let interactiveTimerInterval = null; let confettiInterval = null;
+let currentCardSoundName = null;
 let state = {};
 
 function resetState(fullReset = false) {
@@ -216,6 +217,7 @@ function handleCardClick(cardNumber, winningTeam) {
     if (state.usedCardNumbers.includes(cardNumber)) return;
     const effect = state.shuffledCards[cardNumber];
     if (effect.Sound_Effect) {
+        currentCardSoundName = effect.Sound_Effect;
         playSound(effect.Sound_Effect);
     } else {
         playSound('card_reveal');
@@ -308,18 +310,16 @@ function applyCardEffect(effect, team) {
     let summaryText = "";
     const isNegative = ['SUBTRACT_POINTS', 'RESET_SCORE', 'STEAL_POINTS', 'LOSE_QUARTER_SCORE', 'HALVE_IF_OVER_100', 'HALVE_SCORE', 'GENEROSITY'].includes(effect.Effect_Type);
     const effectsThatCanCausePointLoss = ['SUBTRACT_POINTS', 'STEAL_POINTS', 'RESET_SCORE', 'HALVE_SCORE', 'LOSE_QUARTER_SCORE', 'SUBTRACT_HALF_OPPONENT_SCORE', 'GENEROSITY', 'EQUALIZE_SCORES', 'CHARITY', 'REVERSE_CHARITY', 'SWAP_SCORES'];
-    const positivePointEffects = ['ADD_POINTS', 'STEAL_POINTS', 'SET_SCORE', 'CONDITIONAL_ADD_GIRLS', 'CONDITIONAL_ADD_BOYS', 'ROBIN_HOOD', 'REVERSE_CHARITY'];
+    const positivePointEffects = ['ADD_POINTS', 'STEAL_POINTS', 'SET_SCORE', 'CONDITIONAL_ADD_GIRLS', 'CONDITIONAL_ADD_BOYS', 'ROBIN_HOOD', 'REVERSE_CHARITY', 'GOLDEN_GOOSE'];
 
     if (!effect.Veto_Applied) {
-        // Freeze check: Blocks positive point effects
         if (state.activeEffects[target]?.freeze > 0 && positivePointEffects.includes(effect.Effect_Type)) {
              showSummary(`فريق ${target === 'girls' ? 'البنات' : 'الشباب'} مُجَمَّد ولا يمكن إضافة نقاط له من الكروت!`, () => {
-                updateAllUI(); saveState(); checkWinner();
+                const finalize = () => { updateAllUI(); saveState(); checkWinner(); };
+                finalize();
             });
             return;
         }
-
-        // Immunity check: Blocks effects that cause a net point loss
         if (state.activeEffects[target]?.immunity > 0 && effectsThatCanCausePointLoss.includes(effect.Effect_Type)) {
             const potentialScores = getPotentialScores(effect, team, state);
             if (potentialScores[target] < state[`${target}Score`]) {
@@ -330,7 +330,6 @@ function applyCardEffect(effect, team) {
                 return;
             }
         }
-        // Reflective Shield check: Blocks direct negative attacks
         if(isNegative && state.activeEffects[target]?.shield > 0) {
             state.activeEffects[target].shield = 0;
             summaryText = `الدرع العاكس صد هجوم "${effect.Card_Title}" وعكسه على الخصم!`;
@@ -339,7 +338,6 @@ function applyCardEffect(effect, team) {
             });
             return;
         }
-        // Veto check 1: Defensive (if card causes net point loss)
         if (state.veto[target] && effectsThatCanCausePointLoss.includes(effect.Effect_Type)) {
             const potentialScores = getPotentialScores(effect, team, state);
             if (potentialScores[target] < state[`${target}Score`]) {
@@ -347,7 +345,6 @@ function applyCardEffect(effect, team) {
                 return;
             }
         }
-        // Veto check 2: Strategic (if card makes opponent win)
         if (state.veto[opponent]) {
             const potentialScores = getPotentialScores(effect, team, state);
             if (potentialScores[team] >= WINNING_SCORE && state[`${team}Score`] < WINNING_SCORE) {
@@ -385,7 +382,7 @@ function applyCardEffect(effect, team) {
         case 'HALVE_SCORE': if (state[`${target}Score`] > 0) { const old = state[`${target}Score`]; state[`${target}Score`] = roundToNearestFive(Math.floor(state[`${target}Score`] / 2)); summaryText = `تم خصم نصف نقاط فريق ${target === 'girls' ? 'البنات' : 'الشباب'} من ${old} إلى ${state[`${target}Score`]}.`; } else { summaryText = `نقاط الخصم ليست موجبة، لا يمكن تطبيق الحكم.`; } break;
         case 'LOSE_QUARTER_SCORE': if (state[`${target}Score`] > 0) { const old = state[`${target}Score`]; state[`${target}Score`] = roundToNearestFive(state[`${target}Score`] * 0.75); summaryText = `تم خصم ربع نقاطك من ${old} إلى ${state[`${target}Score`]}.`; } else { summaryText = `نقاطك ليست موجبة، أنت في أمان.`; } break;
         case 'SUBTRACT_HALF_OPPONENT_SCORE': if (state[`${opponent}Score`] > 0) { const amountToSubtract = roundToNearestFive(Math.floor(state[`${opponent}Score`] / 2)); state[`${team}Score`] -= amountToSubtract; summaryText = `يا خسارة! تم خصم ${amountToSubtract} نقطة منك.`; } else { summaryText = `نقاط الخصم ليست موجبة، نجوت!`; } break;
-        case 'CONDITIONAL_ADD_GIRLS': const pointsGirls = team === 'girls' ? 30 : 10; state[`${team}Score`] += pointsGirls; summaryText = `تحيز واضح! تمت إضافة ${pointsGirls} نقطة.`; } break;
+        case 'CONDITIONAL_ADD_GIRLS': const pointsGirls = team === 'girls' ? 30 : 10; state[`${team}Score`] += pointsGirls; summaryText = `تحيز واضح! تمت إضافة ${pointsGirls} نقطة.`; break;
         case 'CONDITIONAL_ADD_BOYS': const pointsBoys = team === 'boys' ? 30 : 10; state[`${team}Score`] += pointsBoys; summaryText = `ده مش تحيز برضه! تمت إضافة ${pointsBoys} نقطة.`; break;
         case 'ROBIN_HOOD': if (state[`${team}Score`] < state[`${opponent}Score`] && state[`${opponent}Score`] > 0) { const robinAmount = roundToNearestFive(Math.floor(state[`${opponent}Score`] * 0.25)); state[`${opponent}Score`] -= robinAmount; state[`${team}Score`] += robinAmount; summaryText = `روبن هود يسرق ${robinAmount} نقطة من الأغنياء للفقراء!`; } else { summaryText = `لا يمكن تطبيق الحكم، أنت لست الأفقر!`; } break;
         case 'IMMUNITY': if(!state.activeEffects[target]) state.activeEffects[target]={}; state.activeEffects[target].immunity = value; summaryText = `تم تفعيل الدرع الواقي لفريق ${target==='girls' ? 'البنات':'الشباب'} لمدة ${value} أسئلة!`; break;
@@ -427,7 +424,6 @@ function updateVisualAids() {
         if (!container) return;
         container.innerHTML = '';
         const effects = state.activeEffects[team] || {};
-        const opponent = team === 'girls' ? 'boys' : 'girls';
         if (state.veto[team]) container.innerHTML += `<div class="status-icon" title="فيتو">⚖️</div>`;
         if (effects.freeze > 0) container.innerHTML += `<div class="status-icon" title="تجميد">❄️<span>${effects.freeze}</span></div>`;
         if (effects.immunity > 0) container.innerHTML += `<div class="status-icon" title="حصانة">🛡️<span>${effects.immunity}</span></div>`;
@@ -570,8 +566,41 @@ function showInteractiveModal(effect, team) {
     showModal(elements.interactiveModal);
 }
 
+function calculateQuestionPoints(winningTeam) {
+    let points = QUESTION_POINTS;
+    const opponent = winningTeam === 'girls' ? 'boys' : 'girls';
+    if (state.activeEffects[winningTeam]?.freeze > 0) {
+        showSummary(`فريق ${winningTeam === 'girls' ? 'البنات' : 'الشباب'} مُجَمَّد ولم يحصل على نقاط!`);
+        return 0;
+    }
+    if (state.activeEffects.girls?.inflation > 0 || state.activeEffects.boys?.inflation > 0) points *= 2;
+    if (state.activeEffects[winningTeam]?.double_next_q > 0) points *= 2;
+    if (state.activeEffects[winningTeam]?.golden_goose > 0) points += 10;
+    if (state.activeEffects[winningTeam]?.winning_streak > 0) {
+        points += 10 * state.activeEffects[winningTeam].winning_streak;
+    }
+    if (state.activeEffects[winningTeam]?.sabotage > 0) {
+        points = roundToNearestFive(points / 2);
+    }
+    if (state.activeEffects[winningTeam]?.taxes?.duration > 0) {
+        const taxTeam = state.activeEffects[winningTeam].taxes.by;
+        const taxAmount = roundToNearestFive(points * 0.25);
+        state[`${taxTeam}Score`] += taxAmount;
+        points -= taxAmount;
+    }
+    if (state.activeEffects[winningTeam]?.leech?.duration > 0) {
+        const leechRecipient = state.activeEffects[winningTeam].leech.to;
+        state[`${leechRecipient}Score`] += roundToNearestFive(points / 2);
+    }
+    return points;
+}
+
 function attachEventListeners() {
     elements.nextQuestionBtn.addEventListener('click', () => {
+        if (currentCardSoundName) {
+            stopSound(currentCardSoundName);
+            currentCardSoundName = null;
+        }
         playSound('click');
         if (!state.gameActive) { alert("الجولة متوقفة حالياً!"); return; }
         if (availableQuestions.length === 0) { alert("انتهت جميع الأسئلة!"); return; }
