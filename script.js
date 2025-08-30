@@ -423,27 +423,23 @@ function showInteractiveModal(effect, team) {
     hideAllModals();
     const opponent = team === 'girls' ? 'boys' : 'girls';
     elements.interactiveTitle.textContent = effect.Card_Title;
-    elements.interactiveDescription.innerHTML = ''; // تم تفريغ الوصف لإضافة الصورة
-    elements.interactiveDescription.textContent = effect.Card_Description; // ثم إضافة النص
+    elements.interactiveDescription.innerHTML = ''; 
+    elements.interactiveDescription.textContent = effect.Card_Description; 
 
     elements.interactiveButtons.innerHTML = '';
     elements.interactiveTimer.classList.add('hidden');
     elements.interactiveInputArea.classList.add('hidden');
     clearInterval(interactiveTimerInterval);
 
-    // --- هذا هو الجزء الجديد والمهم ---
     if (effect.Effect_Type === 'SHOW_IMAGE' && effect.Effect_Value) {
         const img = document.createElement('img');
         img.src = effect.Effect_Value;
-        // تنسيقات بسيطة للصورة لجعل شكلها أفضل
         img.style.maxWidth = '100%';
         img.style.maxHeight = '300px';
         img.style.borderRadius = '15px';
         img.style.marginTop = '20px';
-        // إضافة الصورة داخل منطقة الوصف
         elements.interactiveDescription.appendChild(img);
     }
-    // --- نهاية الجزء الجديد ---
 
     const config = (effect.Manual_Config || '').trim();
     const configType = config.split('(')[0].trim();
@@ -552,33 +548,6 @@ function showInteractiveModal(effect, team) {
     showModal(elements.interactiveModal);
 }
 
-function calculateQuestionPoints(winningTeam) {
-    let points = QUESTION_POINTS;
-    const opponent = winningTeam === 'girls' ? 'boys' : 'girls';
-    if (state.activeEffects[winningTeam]?.freeze > 0) {
-        showSummary(`فريق ${winningTeam === 'girls' ? 'البنات' : 'الشباب'} مُجَمَّد ولم يحصل على نقاط!`);
-        return 0;
-    }
-    if (state.activeEffects.girls?.inflation > 0) points *= 2;
-    if (state.activeEffects[winningTeam]?.double_next_q > 0) points *= 2;
-    if (state.activeEffects[winningTeam]?.golden_goose > 0) points += 10;
-    if (state.activeEffects[winningTeam]?.winning_streak > 0) points += 10 * state.activeEffects[winningTeam].winning_streak;
-    if (state.activeEffects[opponent]?.sabotage > 0) points = roundToNearestFive(points / 2);
-    if (state.activeEffects[winningTeam]?.taxes?.duration > 0) {
-        const taxTeam = state.activeEffects[winningTeam].taxes.by;
-        const taxAmount = roundToNearestFive(points * 0.25);
-        state[`${taxTeam}Score`] += taxAmount;
-        points -= taxAmount;
-    }
-    if (state.activeEffects[opponent]?.leech?.duration > 0) {
-        const leechRecipient = state.activeEffects[opponent].leech.to;
-        if (leechRecipient === winningTeam) {
-            state[`${leechRecipient}Score`] += roundToNearestFive(points / 2);
-        }
-    }
-    return points;
-}
-
 function attachEventListeners() {
     elements.nextQuestionBtn.addEventListener('click', () => {
         playSound('click');
@@ -605,12 +574,10 @@ function attachEventListeners() {
             playSound('point');
             hideModal(elements.questionModal);
             
-            // --- LOGGING START ---
             console.log(`--- Turn Start for ${winningTeam} ---`);
             if (state.activeEffects[winningTeam]?.winning_streak > 0) {
                 console.log(`%c[1] BEFORE CALCULATION: Streak value is ${state.activeEffects[winningTeam].winning_streak}`, 'color: yellow;');
             }
-            // --- LOGGING END ---
 
             const pointsFromQuestion = calculateQuestionPoints(winningTeam);
             
@@ -625,9 +592,7 @@ function attachEventListeners() {
             }
             if (state.activeEffects[winningTeam]?.winning_streak > 0) {
                 state.activeEffects[winningTeam].winning_streak++;
-                // --- LOGGING START ---
                 console.log(`%c[2] AFTER INCREMENT: Streak value is now ${state.activeEffects[winningTeam].winning_streak}`, 'color: cyan;');
-                // --- LOGGING END ---
             }
             
             updateAllUI();
@@ -651,17 +616,14 @@ function attachEventListeners() {
                 }
             });
 
-            // --- LOGGING START ---
             if (state.activeEffects[winningTeam]?.winning_streak > 0) {
                 console.log(`%c[3] BEFORE SAVING: Streak value is ${state.activeEffects[winningTeam].winning_streak}`, 'color: lightgreen;');
             }
             console.log(`--- Turn End ---`);
-            // --- LOGGING END ---
             saveState(); 
         });
     });
 
-    // ... The rest of the function remains exactly the same
     elements.manualControls.forEach(button => {
         button.addEventListener('click', e => {
             playSound('click');
@@ -762,6 +724,71 @@ function attachEventListeners() {
     elements.newDayBtn.addEventListener('click', startNewDay);
     elements.allCloseButtons.forEach(btn => btn.addEventListener('click', () => hideAllModals()));
     elements.toggleAnswerBtn.addEventListener('click', () => elements.modalAnswerArea.classList.toggle('hidden'));
+}
+
+// --- INITIALIZE ---
+async function initializeGame() {
+    try {
+        console.log("Starting to fetch data from Google Sheets...");
+        const [questionsRes, cardsRes] = await Promise.all([
+            fetch(QUESTIONS_SHEET_URL),
+            fetch(CARDS_SHEET_URL)
+        ]);
+        
+        console.log("Fetch responses received.");
+
+        if (!questionsRes.ok || !cardsRes.ok) {
+            throw new Error(`Failed to fetch data. Questions Status: ${questionsRes.status}, Cards Status: ${cardsRes.status}`);
+        }
+        
+        const questionsData = await questionsRes.json();
+        const cardsData = await cardsRes.json();
+        console.log("Data parsed as JSON.");
+
+        if (!questionsData.values || questionsData.values.length < 2 || !cardsData.values || cardsData.values.length < 2) {
+            throw new Error('Google Sheet data is empty or missing headers.');
+        }
+
+        const questionHeaders = questionsData.values[0];
+        const cardHeaders = cardsData.values[0];
+
+        allQuestions = questionsData.values.slice(1).map((row, index) => {
+            let question = { id: `q${index}` };
+            questionHeaders.forEach((header, i) => question[header.trim()] = row[i]);
+            return question;
+        });
+
+        allCards = cardsData.values.slice(1).map((row, index) => {
+            let card = { id: `c${index}` };
+            cardHeaders.forEach((header, i) => card[header.trim()] = row[i]);
+            return card;
+        });
+        
+        console.log(`Successfully loaded ${allQuestions.length} questions and ${allCards.length} cards.`);
+
+    } catch (error) {
+        console.error("Game Initialization Error:", error);
+        document.body.innerHTML = `<div style="padding: 20px; text-align: center; color: red; font-size: 1.2em;">
+            <h1>فشل تحميل بيانات اللعبة</h1>
+            <p>الرجاء التأكد من صحة مفتاح API ومعرف Google Sheet، وأن إعدادات المشاركة هي "Anyone with the link".</p>
+            <p><strong>رسالة الخطأ (للمطور):</strong> ${error.message}</p>
+        </div>`;
+        return; 
+    }
+
+    loadState();
+    availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
+    if (allCards.length > 0 && (!state.shuffledCards || Object.keys(state.shuffledCards).length === 0)) {
+       shuffleAndPrepareCards();
+    }
+    updateAllUI();
+    attachEventListeners();
+    console.log("Game initialized successfully!");
+    
+    elements.nextQuestionBtn.textContent = 'السؤال التالي';
+    elements.nextQuestionBtn.disabled = false;
+    elements.settleRoundBtn.disabled = false;
+    elements.resetRoundBtn.disabled = false;
 }
 
 initializeGame();
