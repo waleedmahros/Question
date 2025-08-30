@@ -99,7 +99,21 @@ function hideAllModals() {
 }
 
 // --- CORE GAME LOGIC ---
-function startNewRound() { playSound('click'); resetState(false); if (allCards.length > 0) shuffleAndPrepareCards(); updateAllUI(); hideModal(elements.celebrationOverlay); saveState(); }
+function startNewRound() { 
+    playSound('click'); 
+    resetState(false); 
+    if (allCards.length > 0) {
+        shuffleAndPrepareCards();
+    }
+    // FIX: Ensure main buttons are enabled at the start of a round
+    elements.settleRoundBtn.disabled = false;
+    elements.resetRoundBtn.disabled = false;
+    state.gameActive = true;
+
+    updateAllUI(); 
+    hideModal(elements.celebrationOverlay); 
+    saveState(); 
+}
 function startNewDay() {
     playSound('click');
     showSummary("هل أنت متأكد؟ سيتم مسح كل شيء.", () => {
@@ -119,6 +133,10 @@ function checkWinner() {
 }
 
 function triggerWinSequence(isSettled = false, settledTeam = null) {
+    // FIX: Disable main buttons when win sequence starts
+    elements.settleRoundBtn.disabled = true;
+    elements.resetRoundBtn.disabled = true;
+
     showModal(elements.celebrationOverlay, false);
     elements.winnerContainer.classList.add('hidden');
     elements.countdownContainer.classList.remove('hidden');
@@ -177,7 +195,23 @@ function showSummary(text, onConfirm) {
 
 // --- CARD GAME LOGIC ---
 function shuffleAndPrepareCards() { let s = [...allCards].sort(() => 0.5 - Math.random()); state.shuffledCards = {}; for (let i = 0; i < s.length; i++) { state.shuffledCards[i + 1] = s[i]; } state.usedCardNumbers = []; }
-function displayCardVault(winningTeam) { if (!elements.cardVaultModal || allCards.length === 0) { checkWinner(); return; } hideAllModals(); elements.cardGrid.innerHTML = ''; for (let i = 1; i <= allCards.length; i++) { const c = document.createElement('button'); c.className = 'card-button'; c.textContent = i; if (state.usedCardNumbers.includes(i)) { c.classList.add('used'); c.disabled = true; } c.addEventListener('click', () => handleCardClick(i, winningTeam)); elements.cardGrid.appendChild(c); } showModal(elements.cardVaultModal); }
+function displayCardVault(winningTeam) {
+    // FIX: Reshuffle cards if all have been used
+    if (allCards.length > 0 && state.usedCardNumbers.length >= allCards.length) {
+        showSummary("تم استخدام جميع الكروت! سيتم إعادة خلطها الآن.", () => {
+            shuffleAndPrepareCards();
+            saveState();
+            displayCardVault(winningTeam); // Re-open the vault with fresh cards
+        });
+        return; // Stop execution to wait for user confirmation
+    }
+
+    if (!elements.cardVaultModal || allCards.length === 0) { checkWinner(); return; } 
+    hideAllModals(); 
+    elements.cardGrid.innerHTML = ''; 
+    for (let i = 1; i <= allCards.length; i++) { const c = document.createElement('button'); c.className = 'card-button'; c.textContent = i; if (state.usedCardNumbers.includes(i)) { c.classList.add('used'); c.disabled = true; } c.addEventListener('click', () => handleCardClick(i, winningTeam)); elements.cardGrid.appendChild(c); } 
+    showModal(elements.cardVaultModal); 
+}
 function handleCardClick(cardNumber, winningTeam) {
     if (state.usedCardNumbers.includes(cardNumber)) return;
     
@@ -202,35 +236,102 @@ function handleCardClick(cardNumber, winningTeam) {
 
 function roundToNearestFive(num) { return Math.floor(num / 5) * 5; }
 
+// HELPER FUNCTION to simulate card effects for advanced logic
+function getPotentialScores(effect, team, currentState) {
+    const opponent = team === 'girls' ? 'boys' : 'girls';
+    let potentialScores = { girls: currentState.girlsScore, boys: currentState.boysScore };
+    const value = parseInt(effect.Effect_Value) || 0;
+    const target = effect.Target === 'OPPONENT' ? opponent : team;
+
+    switch (effect.Effect_Type) {
+        // Negative Effects
+        case 'SUBTRACT_POINTS': potentialScores[target] -= value; break;
+        case 'STEAL_POINTS': potentialScores[team] += value; potentialScores[opponent] -= value; break;
+        case 'RESET_SCORE': potentialScores[target] = 0; break;
+        case 'HALVE_SCORE': if (potentialScores[target] > 0) potentialScores[target] = roundToNearestFive(Math.floor(potentialScores[target] / 2)); break;
+        case 'LOSE_QUARTER_SCORE': if (potentialScores[target] > 0) potentialScores[target] = roundToNearestFive(potentialScores[target] * 0.75); break;
+        case 'SUBTRACT_HALF_OPPONENT_SCORE': if (potentialScores[opponent] > 0) potentialScores[team] -= roundToNearestFive(Math.floor(potentialScores[opponent] / 2)); break;
+        case 'GENEROSITY':
+            let pointsToMove = 0;
+            const history = currentState.questionHistory;
+            if (history.length > 0 && history[history.length - 1].team === team) pointsToMove += history[history.length - 1].points;
+            if (history.length > 1 && history[history.length - 2].team === team) pointsToMove += history[history.length - 2].points;
+            potentialScores[team] -= pointsToMove;
+            potentialScores[opponent] += pointsToMove;
+            break;
+
+        // Indirectly Negative / Game State Changing Effects
+        case 'EQUALIZE_SCORES':
+            const total = potentialScores.girls + potentialScores.boys;
+            const avg = roundToNearestFive(Math.floor(total / 2));
+            potentialScores.girls = avg; potentialScores.boys = avg;
+            break;
+        case 'CHARITY':
+            const higherTeam = potentialScores.girls > potentialScores.boys ? 'girls' : 'boys';
+            const lowerTeam = higherTeam === 'girls' ? 'boys' : 'girls';
+            if (higherTeam !== lowerTeam && potentialScores[higherTeam] > 0) {
+                const charityAmount = roundToNearestFive(Math.floor(potentialScores[higherTeam] / 2));
+                potentialScores[higherTeam] -= charityAmount;
+                potentialScores[lowerTeam] += charityAmount;
+            }
+            break;
+        case 'REVERSE_CHARITY':
+            const higher = potentialScores.girls > potentialScores.boys ? 'girls' : 'boys';
+            const lower = higher === 'girls' ? 'boys' : 'girls';
+            if (higher !== lower && potentialScores[lower] > 0) {
+                const amount = roundToNearestFive(Math.floor(potentialScores[lower] / 2));
+                potentialScores[lower] -= amount;
+                potentialScores[higher] += amount;
+            }
+            break;
+        case 'SWAP_SCORES':
+            [potentialScores.girls, potentialScores.boys] = [potentialScores.boys, potentialScores.girls];
+            break;
+
+        // Positive Effects (for Veto check)
+        case 'ADD_POINTS':
+            if (effect.Target === 'BOTH') {
+                potentialScores.girls += value; potentialScores.boys += value;
+            } else {
+                potentialScores[target] += value;
+            }
+            break;
+        case 'SET_SCORE': if (potentialScores[target] < value) potentialScores[target] = value; break;
+        case 'CONDITIONAL_ADD_GIRLS': potentialScores[team] += team === 'girls' ? 30 : 10; break;
+        case 'CONDITIONAL_ADD_BOYS': potentialScores[team] += team === 'boys' ? 30 : 10; break;
+        case 'ROBIN_HOOD':
+             if (potentialScores[team] < potentialScores[opponent] && potentialScores[opponent] > 0) {
+                const robinAmount = roundToNearestFive(Math.floor(potentialScores[opponent] * 0.25));
+                potentialScores[opponent] -= robinAmount;
+                potentialScores[team] += robinAmount;
+            }
+            break;
+    }
+    return potentialScores;
+}
+
 function applyCardEffect(effect, team) {
     const opponent = team === 'girls' ? 'boys' : 'girls';
-    const value = parseInt(effect.Effect_Value) || 0;
     let target = effect.Target === 'OPPONENT' ? opponent : team;
     let summaryText = "";
-    
-    // Initial sound is moved to handleCardClick. This section determines follow-up sounds.
+
     const isNegative = ['SUBTRACT_POINTS', 'RESET_SCORE', 'STEAL_POINTS', 'LOSE_QUARTER_SCORE', 'REVERSE_CHARITY', 'SUBTRACT_HALF_OPPONENT_SCORE', 'HALVE_IF_OVER_100', 'HALVE_SCORE', 'GENEROSITY'].includes(effect.Effect_Type);
-
-    if(!effect.Sound_Effect){ // Play default effect sounds if no specific sound was provided
-        if (isNegative) playSound('negative_effect');
-        else if (!['NO_EFFECT', 'MANUAL_EFFECT', 'SHOW_IMAGE', 'GAMBLE', 'PLAYER_CHOICE_RISK'].includes(effect.Effect_Type)) playSound('positive_effect');
-    }
-
-    // --- EFFECT BLOCKERS (IMMUNITY, SHIELD, VETO) ---
-    // FIX #9: Check for IMMUNITY first.
-    if (isNegative && state.activeEffects[target]?.immunity > 0) {
-        playSound('negative_effect'); // Sound of something being blocked
-        showSummary(`الدرع الواقي صد هجوم "${effect.Card_Title}"!`, () => {
-            updateAllUI();
-            saveState();
-            checkWinner();
-        });
-        return; // Exit function, effect is blocked.
-    }
+    const effectsThatCanCausePointLoss = ['SUBTRACT_POINTS', 'STEAL_POINTS', 'RESET_SCORE', 'HALVE_SCORE', 'LOSE_QUARTER_SCORE', 'SUBTRACT_HALF_OPPONENT_SCORE', 'GENEROSITY', 'EQUALIZE_SCORES', 'CHARITY', 'REVERSE_CHARITY', 'SWAP_SCORES'];
     
-    // FIX #10 (Part 1): Consume the REFLECTIVE_SHIELD on use.
+    // --- ADVANCED SHIELD LOGIC ---
+    if (state.activeEffects[target]?.immunity > 0 && effectsThatCanCausePointLoss.includes(effect.Effect_Type)) {
+        const potentialScores = getPotentialScores(effect, team, state);
+        if (potentialScores[target] < state[`${target}Score`]) {
+            playSound('negative_effect');
+            showSummary(`الدرع الواقي منع خسارة النقاط من حكم "${effect.Card_Title}"!`, () => {
+                updateAllUI(); saveState(); checkWinner();
+            });
+            return;
+        }
+    }
+
     if(isNegative && state.activeEffects[target]?.shield > 0) {
-        state.activeEffects[target].shield = 0; // Consume the shield
+        state.activeEffects[target].shield = 0;
         summaryText = `الدرع العاكس صد هجوم "${effect.Card_Title}" وعكسه على الخصم!`;
         showSummary(summaryText, () => {
             applyCardEffect(effect, opponent); 
@@ -238,14 +339,36 @@ function applyCardEffect(effect, team) {
         return;
     }
     
+    // --- ADVANCED VETO LOGIC ---
+    // 1. Defensive Veto (direct negative attack)
     if (isNegative && state.veto[target]) {
         showInteractiveModal({ ...effect, Manual_Config: 'veto_choice' }, target);
         return;
     }
+    // 2. Strategic Veto (block opponent's win)
+    if (state.veto[opponent]) {
+        const potentialScores = getPotentialScores(effect, team, state);
+        if (potentialScores[team] >= WINNING_SCORE && state[`${team}Score`] < WINNING_SCORE) {
+            const customEffect = {
+                ...effect,
+                Manual_Config: 'veto_choice',
+                Card_Description: `فريق ${team === 'girls' ? 'البنات' : 'الشباب'} على وشك الفوز بالجولة بهذا الكارت! هل تريدون استخدام الفيتو لإلغاء تأثيره؟`,
+                Card_Title: 'اعتراض استراتيجي'
+            };
+            showInteractiveModal(customEffect, opponent);
+            return;
+        }
+    }
+    
+    // Play sound effects after checks are done
+    if(!effect.Sound_Effect){
+        if (isNegative) playSound('negative_effect');
+        else if (!['NO_EFFECT', 'MANUAL_EFFECT', 'SHOW_IMAGE', 'GAMBLE', 'PLAYER_CHOICE_RISK'].includes(effect.Effect_Type)) playSound('positive_effect');
+    }
     
     if(isNegative && effect.Effect_Type !== 'REVENGE' && effect.Effect_Type !== 'COPYCAT') { state.lastNegativeEffect = { ...effect }; }
 
-    // --- EFFECT IMPLEMENTATION ---
+    const value = parseInt(effect.Effect_Value) || 0;
     switch (effect.Effect_Type) {
         case 'ADD_POINTS': if (effect.Target === 'BOTH') { state.girlsScore += value; state.boysScore += value; summaryText = `تمت إضافة ${value} نقطة لكلا الفريقين!`; } else { state[`${target}Score`] += value; summaryText = `تمت إضافة ${value} نقطة لفريق ${target === 'girls' ? 'البنات' : 'الشباب'}.`; } break;
         case 'SUBTRACT_POINTS': state[`${target}Score`] -= value; summaryText = `تم خصم ${value} نقطة من فريق ${target === 'girls' ? 'البنات' : 'الشباب'}.`; break;
@@ -322,7 +445,7 @@ function showInteractiveModal(effect, team) {
     clearInterval(interactiveTimerInterval);
 
     const config = effect.Manual_Config || '';
-    const configType = config.split('(')[0];
+    const configType = config.split('(')[0].trim();
     const configParamsMatch = config.match(/\((.*)\)/);
     const configParams = configParamsMatch ? configParamsMatch[1] : '';
 
@@ -335,12 +458,12 @@ function showInteractiveModal(effect, team) {
     }
 
     if (configType === 'veto_choice') {
-        elements.interactiveTitle.textContent = 'حق الفيتو';
-        elements.interactiveDescription.textContent = `فريق ${team === 'girls' ? 'البنات' : 'الشباب'} يمتلك الفيتو. هل تريد استخدامه لإلغاء حكم "${effect.Card_Title}"؟`;
-        const btn1 = document.createElement('button'); btn1.textContent = "نعم، استخدمه"; btn1.className = 'interactive-btn-success';
+        elements.interactiveTitle.textContent = effect.Card_Title || 'حق الفيتو';
+        elements.interactiveDescription.textContent = effect.Card_Description;
+        const btn1 = document.createElement('button'); btn1.textContent = "نعم، استخدم الفيتو"; btn1.className = 'interactive-btn-success';
         btn1.onclick = () => { state.veto[team] = false; hideModal(elements.interactiveModal); showSummary(`تم استخدام الفيتو بنجاح!`, () => { updateAllUI(); saveState(); checkWinner(); }); };
         const btn2 = document.createElement('button'); btn2.textContent = "لا، احتفظ به"; btn2.className = 'interactive-btn-fail';
-        btn2.onclick = () => { hideModal(elements.interactiveModal); applyCardEffect({ ...effect, Sound_Effect:'' }, team); }; // Re-apply without veto check
+        btn2.onclick = () => { hideModal(elements.interactiveModal); applyCardEffect({ ...effect, Veto_Applied: true }, team === opponent ? opponent : team); }; // Re-apply without veto check
         elements.interactiveButtons.append(btn1, btn2);
     } else if (configType.startsWith('task')) {
         const successBtn = document.createElement('button'); successBtn.className = 'interactive-btn-success';
@@ -446,7 +569,6 @@ function calculateQuestionPoints(winningTeam) {
         points -= taxAmount;
     }
 
-    // FIX #8: Corrected LEECH logic
     if (state.activeEffects[opponent]?.leech?.duration > 0) {
         const leechRecipient = state.activeEffects[opponent].leech.to;
         if (leechRecipient === winningTeam) {
@@ -508,12 +630,10 @@ function attachEventListeners() {
                 checkWinner();
             }
 
-            // FIX #1 & #2: Decrement timers AFTER all logic for the current turn is complete.
             ['girls', 'boys'].forEach(team => {
                 if (state.activeEffects[team]) {
                     for (const effect in state.activeEffects[team]) {
                         const effectObj = state.activeEffects[team][effect];
-                        // FIX #10 (Part 2): Exempt reflective shield from automatic decrement.
                         if (typeof effectObj === 'number' && effectObj > 0 && effect !== 'shield') {
                             state.activeEffects[team][effect]--;
                         } else if (effectObj?.duration > 0) {
@@ -522,7 +642,6 @@ function attachEventListeners() {
                     }
                 }
             });
-            // Save state again after decrementing timers
             saveState(); 
         });
     });
@@ -533,6 +652,13 @@ function attachEventListeners() {
             const team = e.target.dataset.team;
             const action = e.target.dataset.action;
             
+            // The user decided against this, but leaving it commented in case they change their mind
+            /*
+            if (action === 'subtract' && state.activeEffects[team]?.immunity > 0) {
+                showSummary(`فريق ${team === 'girls' ? 'البنات' : 'الشباب'} محصن ضد الخصم اليدوي!`);
+                return;
+            }
+            */
             if (state.activeEffects[team]?.freeze > 0) {
                 showSummary(`فريق ${team === 'girls' ? 'البنات' : 'الشباب'} مُجَمَّد ولا يمكن تغيير نقاطه!`);
                 return;
@@ -567,6 +693,9 @@ function attachEventListeners() {
         hideModal(elements.celebrationOverlay);
         state.gameActive = true; 
         state.countdownActive = false;
+        // Re-enable buttons after stopping countdown
+        elements.settleRoundBtn.disabled = false;
+        elements.resetRoundBtn.disabled = false;
         saveState();
     });
     
@@ -628,51 +757,6 @@ function attachEventListeners() {
 }
 
 // --- INITIALIZE ---
-// This function needs to be created in your main script file to fetch data and start the game.
-// Example:
-/*
-async function initializeGame() {
-    try {
-        const [questionsRes, cardsRes] = await Promise.all([
-            fetch(QUESTIONS_SHEET_URL),
-            fetch(CARDS_SHEET_URL)
-        ]);
-        if (!questionsRes.ok || !cardsRes.ok) throw new Error('Failed to fetch data from Google Sheets.');
-        
-        const questionsData = await questionsRes.json();
-        const cardsData = await cardsRes.json();
-
-        // Assuming the first row is headers
-        const questionHeaders = questionsData.values[0];
-        const cardHeaders = cardsData.values[0];
-
-        allQuestions = questionsData.values.slice(1).map((row, index) => {
-            let question = { id: `q${index}` };
-            questionHeaders.forEach((header, i) => question[header] = row[i]);
-            return question;
-        });
-
-        allCards = cardsData.values.slice(1).map((row, index) => {
-            let card = { id: `c${index}` };
-            cardHeaders.forEach((header, i) => card[header] = row[i]);
-            return card;
-        });
-
-    } catch (error) {
-        console.error("Initialization Error:", error);
-        document.body.innerHTML = `<p style="color:red; text-align:center; margin-top: 50px;">Failed to load game data. Please check the console for errors and ensure the Google Sheet ID and API Key are correct.</p>`;
-        return;
-    }
-
-    loadState();
-    availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
-    if (allCards.length > 0) {
-       shuffleAndPrepareCards();
-    }
-    updateAllUI();
-    attachEventListeners();
-}
-*/
 async function initializeGame() {
     try {
         console.log("Starting to fetch data from Google Sheets...");
@@ -680,19 +764,17 @@ async function initializeGame() {
             fetch(QUESTIONS_SHEET_URL),
             fetch(CARDS_SHEET_URL)
         ]);
-
+        
         console.log("Fetch responses received.");
 
         if (!questionsRes.ok || !cardsRes.ok) {
-            // This will show a specific error if the Sheet ID is wrong (404) or sharing is restricted (403)
             throw new Error(`Failed to fetch data. Questions Status: ${questionsRes.status}, Cards Status: ${cardsRes.status}`);
         }
-
+        
         const questionsData = await questionsRes.json();
         const cardsData = await cardsRes.json();
         console.log("Data parsed as JSON.");
 
-        // Check if data is empty or malformed
         if (!questionsData.values || questionsData.values.length < 2 || !cardsData.values || cardsData.values.length < 2) {
             throw new Error('Google Sheet data is empty or missing headers.');
         }
@@ -711,7 +793,7 @@ async function initializeGame() {
             cardHeaders.forEach((header, i) => card[header.trim()] = row[i]);
             return card;
         });
-
+        
         console.log(`Successfully loaded ${allQuestions.length} questions and ${allCards.length} cards.`);
 
     } catch (error) {
@@ -721,18 +803,22 @@ async function initializeGame() {
             <p>الرجاء التأكد من صحة مفتاح API ومعرف Google Sheet، وأن إعدادات المشاركة هي "Anyone with the link".</p>
             <p><strong>رسالة الخطأ (للمطور):</strong> ${error.message}</p>
         </div>`;
-        return; // Stop execution
+        return; 
     }
 
     loadState();
     availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
-    if (allCards.length > 0) {
+    if (allCards.length > 0 && Object.keys(state.shuffledCards).length === 0) {
        shuffleAndPrepareCards();
     }
     updateAllUI();
     attachEventListeners();
     console.log("Game initialized successfully!");
+    
     elements.nextQuestionBtn.textContent = 'السؤال التالي';
-elements.nextQuestionBtn.disabled = false;
+    elements.nextQuestionBtn.disabled = false;
+    elements.settleRoundBtn.disabled = false;
+    elements.resetRoundBtn.disabled = false;
 }
+
 initializeGame();
