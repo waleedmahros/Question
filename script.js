@@ -383,7 +383,14 @@ function applyCardEffect(effect, team) {
         case 'SABOTAGE': if(!state.activeEffects[opponent]) state.activeEffects[opponent]={}; state.activeEffects[opponent].sabotage = value; summaryText = `تخريب! سيحصل الخصم على نصف نقاطه فقط لمدة ${value} أسئلة.`; break;
         case 'GOLDEN_GOOSE': if(!state.activeEffects[team]) state.activeEffects[team]={}; state.activeEffects[team].golden_goose = value; summaryText = `الإوزة الذهبية! +10 نقاط هدية مع كل فوز لمدة ${value} أسئلة.`; break;
         case 'INFLATION': if(!state.activeEffects.girls) state.activeEffects.girls={}; if(!state.activeEffects.boys) state.activeEffects.boys={}; state.activeEffects.girls.inflation = value; state.activeEffects.boys.inflation = value; summaryText = `تضخم! قيمة الأسئلة القادمة مضاعفة للجميع لمدة ${value} أسئلة.`; break;
-        case 'WINNING_STREAK': if(!state.activeEffects[team]) state.activeEffects[team]={}; state.activeEffects[team].winning_streak = 1; summaryText = `بدأت سلسلة الانتصارات!`; break;
+        case 'WINNING_STREAK': 
+            if (!state.activeEffects[team]?.winning_streak) {
+                state.activeEffects[team].winning_streak = 1;
+                summaryText = `بدأت سلسلة الانتصارات!`;
+            } else {
+                summaryText = `لديك سلسلة انتصارات فعالة بالفعل!`;
+            }
+            break;
         case 'LEECH': if(!state.activeEffects[opponent]) state.activeEffects[opponent]={}; state.activeEffects[opponent].leech = { duration: value, to: team }; summaryText = `تطفل! ستكسب نصف ما يكسبه خصمك لمدة ${value} أسئلة.`; break;
         case 'PLAYER_CHOICE_RISK': case 'MANUAL_EFFECT': case 'SHOW_IMAGE': case 'GAMBLE':
             showInteractiveModal(effect, team);
@@ -461,10 +468,11 @@ function showInteractiveModal(effect, team) {
         btn1.onclick = () => { state.veto[team] = false; hideModal(elements.interactiveModal); showSummary(`تم استخدام الفيتو بنجاح!`, () => { updateAllUI(); saveState(); checkWinner(); }); };
         const btn2 = document.createElement('button'); btn2.textContent = "لا، احتفظ به"; btn2.className = 'interactive-btn-fail';
         btn2.onclick = () => { 
-            const originalEffect = state.shuffledCards[state.usedCardNumbers[state.usedCardNumbers.length - 1]];
-            const originalTeam = effect.Target === 'OPPONENT' ? (team === 'girls' ? 'boys' : 'girls') : team;
+            const lastCardNumber = state.usedCardNumbers[state.usedCardNumbers.length - 1];
+            const originalEffect = state.shuffledCards[lastCardNumber];
+            const originalWinningTeam = state.questionHistory[state.questionHistory.length - 1].team;
             hideModal(elements.interactiveModal); 
-            applyCardEffect({ ...originalEffect, Veto_Applied: true }, originalTeam);
+            applyCardEffect({ ...originalEffect, Veto_Applied: true }, originalWinningTeam);
         };
         elements.interactiveButtons.append(btn1, btn2);
     } else if (configType.startsWith('task')) {
@@ -555,10 +563,12 @@ function calculateQuestionPoints(winningTeam) {
         showSummary(`فريق ${winningTeam === 'girls' ? 'البنات' : 'الشباب'} مُجَمَّد ولم يحصل على نقاط!`);
         return 0;
     }
-    if (state.activeEffects.girls?.inflation > 0) points *= 2;
+    if (state.activeEffects.girls?.inflation > 0 || state.activeEffects.boys?.inflation > 0) points *= 2;
     if (state.activeEffects[winningTeam]?.double_next_q > 0) points *= 2;
     if (state.activeEffects[winningTeam]?.golden_goose > 0) points += 10;
-    if (state.activeEffects[winningTeam]?.winning_streak > 0) points += 10 * state.activeEffects[winningTeam].winning_streak;
+    if (state.activeEffects[winningTeam]?.winning_streak > 0) {
+        points += 10 * state.activeEffects[winningTeam].winning_streak;
+    }
     if (state.activeEffects[opponent]?.sabotage > 0) points = roundToNearestFive(points / 2);
     if (state.activeEffects[winningTeam]?.taxes?.duration > 0) {
         const taxTeam = state.activeEffects[winningTeam].taxes.by;
