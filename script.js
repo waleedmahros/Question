@@ -627,6 +627,52 @@ function attachEventListeners() {
     elements.toggleAnswerBtn.addEventListener('click', () => elements.modalAnswerArea.classList.toggle('hidden'));
 }
 
+// --- INITIALIZE ---
+// This function needs to be created in your main script file to fetch data and start the game.
+// Example:
+/*
+async function initializeGame() {
+    try {
+        const [questionsRes, cardsRes] = await Promise.all([
+            fetch(QUESTIONS_SHEET_URL),
+            fetch(CARDS_SHEET_URL)
+        ]);
+        if (!questionsRes.ok || !cardsRes.ok) throw new Error('Failed to fetch data from Google Sheets.');
+        
+        const questionsData = await questionsRes.json();
+        const cardsData = await cardsRes.json();
+
+        // Assuming the first row is headers
+        const questionHeaders = questionsData.values[0];
+        const cardHeaders = cardsData.values[0];
+
+        allQuestions = questionsData.values.slice(1).map((row, index) => {
+            let question = { id: `q${index}` };
+            questionHeaders.forEach((header, i) => question[header] = row[i]);
+            return question;
+        });
+
+        allCards = cardsData.values.slice(1).map((row, index) => {
+            let card = { id: `c${index}` };
+            cardHeaders.forEach((header, i) => card[header] = row[i]);
+            return card;
+        });
+
+    } catch (error) {
+        console.error("Initialization Error:", error);
+        document.body.innerHTML = `<p style="color:red; text-align:center; margin-top: 50px;">Failed to load game data. Please check the console for errors and ensure the Google Sheet ID and API Key are correct.</p>`;
+        return;
+    }
+
+    loadState();
+    availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
+    if (allCards.length > 0) {
+       shuffleAndPrepareCards();
+    }
+    updateAllUI();
+    attachEventListeners();
+}
+*/
 async function initializeGame() {
     try {
         console.log("Starting to fetch data from Google Sheets...");
@@ -634,14 +680,14 @@ async function initializeGame() {
             fetch(QUESTIONS_SHEET_URL),
             fetch(CARDS_SHEET_URL)
         ]);
-        
+
         console.log("Fetch responses received.");
 
         if (!questionsRes.ok || !cardsRes.ok) {
             // This will show a specific error if the Sheet ID is wrong (404) or sharing is restricted (403)
             throw new Error(`Failed to fetch data. Questions Status: ${questionsRes.status}, Cards Status: ${cardsRes.status}`);
         }
-        
+
         const questionsData = await questionsRes.json();
         const cardsData = await cardsRes.json();
         console.log("Data parsed as JSON.");
@@ -665,7 +711,7 @@ async function initializeGame() {
             cardHeaders.forEach((header, i) => card[header.trim()] = row[i]);
             return card;
         });
-        
+
         console.log(`Successfully loaded ${allQuestions.length} questions and ${allCards.length} cards.`);
 
     } catch (error) {
@@ -687,3 +733,4 @@ async function initializeGame() {
     attachEventListeners();
     console.log("Game initialized successfully!");
 }
+initializeGame();
