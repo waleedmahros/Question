@@ -237,7 +237,9 @@ function getPotentialScores(effect, team, currentState) {
     const opponent = team === 'girls' ? 'boys' : 'girls';
     let potentialScores = { girls: currentState.girlsScore, boys: currentState.boysScore };
     const value = parseInt(effect.Effect_Value) || 0;
-    const target = effect.Target === 'OPPONENT' ? opponent : team;
+    let target = effect.Target === 'OPPONENT' ? opponent : team;
+    if (effect.Target === 'BOTH') target = 'both';
+    
     switch (effect.Effect_Type) {
         case 'SUBTRACT_POINTS': potentialScores[target] -= value; break;
         case 'STEAL_POINTS': potentialScores[team] += value; potentialScores[opponent] -= value; break;
@@ -280,7 +282,7 @@ function getPotentialScores(effect, team, currentState) {
             [potentialScores.girls, potentialScores.boys] = [potentialScores.boys, potentialScores.girls];
             break;
         case 'ADD_POINTS':
-            if (effect.Target === 'BOTH') {
+            if (target === 'both') {
                 potentialScores.girls += value; potentialScores.boys += value;
             } else {
                 potentialScores[target] += value;
@@ -531,6 +533,33 @@ function showInteractiveModal(effect, team) {
         }, 1000);
     }
     showModal(elements.interactiveModal);
+}
+
+function calculateQuestionPoints(winningTeam) {
+    let points = QUESTION_POINTS;
+    const opponent = winningTeam === 'girls' ? 'boys' : 'girls';
+    if (state.activeEffects[winningTeam]?.freeze > 0) {
+        showSummary(`فريق ${winningTeam === 'girls' ? 'البنات' : 'الشباب'} مُجَمَّد ولم يحصل على نقاط!`);
+        return 0;
+    }
+    if (state.activeEffects.girls?.inflation > 0) points *= 2;
+    if (state.activeEffects[winningTeam]?.double_next_q > 0) points *= 2;
+    if (state.activeEffects[winningTeam]?.golden_goose > 0) points += 10;
+    if (state.activeEffects[winningTeam]?.winning_streak > 0) points += 10 * state.activeEffects[winningTeam].winning_streak;
+    if (state.activeEffects[opponent]?.sabotage > 0) points = roundToNearestFive(points / 2);
+    if (state.activeEffects[winningTeam]?.taxes?.duration > 0) {
+        const taxTeam = state.activeEffects[winningTeam].taxes.by;
+        const taxAmount = roundToNearestFive(points * 0.25);
+        state[`${taxTeam}Score`] += taxAmount;
+        points -= taxAmount;
+    }
+    if (state.activeEffects[opponent]?.leech?.duration > 0) {
+        const leechRecipient = state.activeEffects[opponent].leech.to;
+        if (leechRecipient === winningTeam) {
+            state[`${leechRecipient}Score`] += roundToNearestFive(points / 2);
+        }
+    }
+    return points;
 }
 
 function attachEventListeners() {
