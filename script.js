@@ -424,7 +424,7 @@ function updateVisualAids() {
         const effects = state.activeEffects[team] || {};
         const opponent = team === 'girls' ? 'boys' : 'girls';
         const opponentEffects = state.activeEffects[opponent] || {};
-        if (state.veto[team]) container.innerHTML += `<div class="status-icon" title="فيتو">⚖️</div>`;
+        if (state.veto[team]) container.innerHTML += `<div class="status-icon" title="فيتو">🚫</div>`;
         if (effects.freeze > 0) container.innerHTML += `<div class="status-icon" title="تجميد">❄️<span>${effects.freeze}</span></div>`;
         if (effects.immunity > 0) container.innerHTML += `<div class="status-icon" title="حصانة">🛡️<span>${effects.immunity}</span></div>`;
         if (effects.double_next_q > 0) container.innerHTML += `<div class="status-icon" title="نقاط مضاعفة">x2</div>`;
