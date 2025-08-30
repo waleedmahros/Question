@@ -423,13 +423,29 @@ function showInteractiveModal(effect, team) {
     hideAllModals();
     const opponent = team === 'girls' ? 'boys' : 'girls';
     elements.interactiveTitle.textContent = effect.Card_Title;
-    elements.interactiveDescription.textContent = effect.Card_Description;
+    elements.interactiveDescription.innerHTML = ''; // تم تفريغ الوصف لإضافة الصورة
+    elements.interactiveDescription.textContent = effect.Card_Description; // ثم إضافة النص
+
     elements.interactiveButtons.innerHTML = '';
     elements.interactiveTimer.classList.add('hidden');
     elements.interactiveInputArea.classList.add('hidden');
     clearInterval(interactiveTimerInterval);
 
-    const config = effect.Manual_Config || '';
+    // --- هذا هو الجزء الجديد والمهم ---
+    if (effect.Effect_Type === 'SHOW_IMAGE' && effect.Effect_Value) {
+        const img = document.createElement('img');
+        img.src = effect.Effect_Value;
+        // تنسيقات بسيطة للصورة لجعل شكلها أفضل
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '300px';
+        img.style.borderRadius = '15px';
+        img.style.marginTop = '20px';
+        // إضافة الصورة داخل منطقة الوصف
+        elements.interactiveDescription.appendChild(img);
+    }
+    // --- نهاية الجزء الجديد ---
+
+    const config = (effect.Manual_Config || '').trim();
     const configType = config.split('(')[0].trim();
     const configParamsMatch = config.match(/\((.*)\)/);
     const configParams = configParamsMatch ? configParamsMatch[1] : '';
@@ -514,7 +530,8 @@ function showInteractiveModal(effect, team) {
         elements.interactiveButtons.append(closeBtn);
     } else { // info, default
         const closeBtn = document.createElement('button'); closeBtn.textContent = 'تم';
-        closeBtn.className = 'interactive-btn-confirm'; closeBtn.onclick = () => hideModal(elements.interactiveModal);
+        closeBtn.className = 'interactive-btn-confirm';
+        closeBtn.onclick = () => { hideModal(elements.interactiveModal); checkWinner(); };
         elements.interactiveButtons.append(closeBtn);
     }
     
