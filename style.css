@@ -658,6 +658,19 @@ footer button:disabled {
     animation: confetti-fall 5s linear;
 }
 
+@keyframes winner-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px 5px rgba(255, 215, 0, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 40px 15px rgba(255, 215, 0, 1);
+  }
+}
+
+.winner-avatar-celebrate {
+  animation: winner-glow 2s ease-in-out infinite;
+}
+
 #supporter-form {
     display: flex;
     flex-direction: column;
