@@ -605,29 +605,37 @@ function attachEventListeners() {
             playSound('point');
             hideModal(elements.questionModal);
             
+            // --- الترتيب الصحيح والنهائي ---
+
+            // 1. حساب النقاط بناءً على قيمة السلسلة الحالية
             const pointsFromQuestion = calculateQuestionPoints(winningTeam);
             
+            // 2. إضافة النقاط إلى الرصيد
             if(pointsFromQuestion > 0) state[`${winningTeam}Score`] += pointsFromQuestion;
             state.questionHistory.push({team: winningTeam, points: pointsFromQuestion});
             if(state.questionHistory.length > 5) state.questionHistory.shift();
             
-            updateAllUI();
-
+            // 3. التعامل مع منطق السلسلة (تحديث العداد أو كسره)
             const opponent = winningTeam === 'girls' ? 'boys' : 'girls';
             if (state.activeEffects[opponent]?.winning_streak > 0) {
                 showSummary(`تم كسر سلسلة انتصارات فريق ${opponent === 'girls' ? 'البنات' : 'الشباب'}!`);
                 state.activeEffects[opponent].winning_streak = 0;
             }
             if (state.activeEffects[winningTeam]?.winning_streak > 0) {
-                state.activeEffects[winningTeam].winning_streak++;
+                state.activeEffects[winningTeam].winning_streak++; // زيادة العداد استعداداً للفوز القادم
             }
             
+            // 4. الآن نقوم بتحديث الواجهة الرسومية لتعكس النقاط الجديدة والعداد المحدث للأيقونة
+            updateAllUI();
+            
+            // 5. التحقق من الفائز أو عرض الكروت
             if (state.questionNumber % 2 === 0) {
                 displayCardVault(winningTeam);
             } else {
                 checkWinner();
             }
 
+            // 6. إنقاص عدادات باقي التأثيرات
             ['girls', 'boys'].forEach(team => {
                 if (state.activeEffects[team]) {
                     for (const effect in state.activeEffects[team]) {
@@ -640,6 +648,8 @@ function attachEventListeners() {
                     }
                 }
             });
+
+            // 7. حفظ الحالة النهائية بعد كل التغييرات
             saveState(); 
         });
     });
