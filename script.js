@@ -100,7 +100,14 @@ function hideAllModals() {
 
 // --- CORE GAME LOGIC ---
 function startNewRound() { playSound('click'); resetState(false); if (allCards.length > 0) shuffleAndPrepareCards(); updateAllUI(); hideModal(elements.celebrationOverlay); saveState(); }
-function startNewDay() { playSound('click'); if (confirm("هل أنت متأكد؟ سيتم مسح كل شيء.")) { localStorage.removeItem('ronyGamesV2'); resetState(true); location.reload(); } }
+function startNewDay() {
+    playSound('click');
+    showSummary("هل أنت متأكد؟ سيتم مسح كل شيء.", () => {
+        localStorage.removeItem('ronyGamesV2');
+        resetState(true);
+        location.reload();
+    });
+}
 
 function checkWinner() {
     if (state.countdownActive || !state.gameActive) return;
@@ -173,13 +180,20 @@ function shuffleAndPrepareCards() { let s = [...allCards].sort(() => 0.5 - Math.
 function displayCardVault(winningTeam) { if (!elements.cardVaultModal || allCards.length === 0) { checkWinner(); return; } hideAllModals(); elements.cardGrid.innerHTML = ''; for (let i = 1; i <= allCards.length; i++) { const c = document.createElement('button'); c.className = 'card-button'; c.textContent = i; if (state.usedCardNumbers.includes(i)) { c.classList.add('used'); c.disabled = true; } c.addEventListener('click', () => handleCardClick(i, winningTeam)); elements.cardGrid.appendChild(c); } showModal(elements.cardVaultModal); }
 function handleCardClick(cardNumber, winningTeam) {
     if (state.usedCardNumbers.includes(cardNumber)) return;
-    playSound('card_reveal');
+    
     const effect = state.shuffledCards[cardNumber];
+
+    if (effect.Sound_Effect) {
+        playSound(effect.Sound_Effect);
+    } else {
+        playSound('card_reveal');
+    }
+
     elements.revealCardTitle.textContent = effect.Card_Title;
     elements.revealCardDescription.textContent = effect.Card_Description;
     elements.revealCardConfirmBtn.onclick = () => {
         state.usedCardNumbers.push(cardNumber);
-        hideModal(elements.revealCardModal, false);
+        hideModal(elements.revealCardModal);
         applyCardEffect(effect, winningTeam);
     };
     hideModal(elements.cardVaultModal);
@@ -194,14 +208,29 @@ function applyCardEffect(effect, team) {
     let target = effect.Target === 'OPPONENT' ? opponent : team;
     let summaryText = "";
     
-    if (effect.Sound_Effect) playSound(effect.Sound_Effect);
-    else if (['SUBTRACT_POINTS', 'RESET_SCORE', 'LOSE_QUARTER_SCORE', 'REVERSE_CHARITY', 'SUBTRACT_HALF_OPPONENT_SCORE', 'HALVE_IF_OVER_100', 'HALVE_SCORE', 'GENEROSITY'].includes(effect.Effect_Type)) playSound('negative_effect');
-    else if (!['NO_EFFECT', 'MANUAL_EFFECT', 'SHOW_IMAGE', 'GAMBLE', 'PLAYER_CHOICE_RISK'].includes(effect.Effect_Type)) playSound('positive_effect');
-
+    // Initial sound is moved to handleCardClick. This section determines follow-up sounds.
     const isNegative = ['SUBTRACT_POINTS', 'RESET_SCORE', 'STEAL_POINTS', 'LOSE_QUARTER_SCORE', 'REVERSE_CHARITY', 'SUBTRACT_HALF_OPPONENT_SCORE', 'HALVE_IF_OVER_100', 'HALVE_SCORE', 'GENEROSITY'].includes(effect.Effect_Type);
+
+    if(!effect.Sound_Effect){ // Play default effect sounds if no specific sound was provided
+        if (isNegative) playSound('negative_effect');
+        else if (!['NO_EFFECT', 'MANUAL_EFFECT', 'SHOW_IMAGE', 'GAMBLE', 'PLAYER_CHOICE_RISK'].includes(effect.Effect_Type)) playSound('positive_effect');
+    }
+
+    // --- EFFECT BLOCKERS (IMMUNITY, SHIELD, VETO) ---
+    // FIX #9: Check for IMMUNITY first.
+    if (isNegative && state.activeEffects[target]?.immunity > 0) {
+        playSound('negative_effect'); // Sound of something being blocked
+        showSummary(`الدرع الواقي صد هجوم "${effect.Card_Title}"!`, () => {
+            updateAllUI();
+            saveState();
+            checkWinner();
+        });
+        return; // Exit function, effect is blocked.
+    }
     
+    // FIX #10 (Part 1): Consume the REFLECTIVE_SHIELD on use.
     if(isNegative && state.activeEffects[target]?.shield > 0) {
-        state.activeEffects[target].shield = 0;
+        state.activeEffects[target].shield = 0; // Consume the shield
         summaryText = `الدرع العاكس صد هجوم "${effect.Card_Title}" وعكسه على الخصم!`;
         showSummary(summaryText, () => {
             applyCardEffect(effect, opponent); 
@@ -216,6 +245,7 @@ function applyCardEffect(effect, team) {
     
     if(isNegative && effect.Effect_Type !== 'REVENGE' && effect.Effect_Type !== 'COPYCAT') { state.lastNegativeEffect = { ...effect }; }
 
+    // --- EFFECT IMPLEMENTATION ---
     switch (effect.Effect_Type) {
         case 'ADD_POINTS': if (effect.Target === 'BOTH') { state.girlsScore += value; state.boysScore += value; summaryText = `تمت إضافة ${value} نقطة لكلا الفريقين!`; } else { state[`${target}Score`] += value; summaryText = `تمت إضافة ${value} نقطة لفريق ${target === 'girls' ? 'البنات' : 'الشباب'}.`; } break;
         case 'SUBTRACT_POINTS': state[`${target}Score`] -= value; summaryText = `تم خصم ${value} نقطة من فريق ${target === 'girls' ? 'البنات' : 'الشباب'}.`; break;
@@ -275,7 +305,7 @@ function updateVisualAids() {
         if (opponentEffects.sabotage > 0) container.innerHTML += `<div class="status-icon" title="تخريب">💣<span>${opponentEffects.sabotage}</span></div>`;
         if (effects.golden_goose > 0) container.innerHTML += `<div class="status-icon" title="إوزة ذهبية">🥚<span>${effects.golden_goose}</span></div>`;
         if (effects.winning_streak > 0) container.innerHTML += `<div class="status-icon" title="سلسلة انتصارات">🔥<span>${effects.winning_streak}</span></div>`;
-        if (effects.leech?.duration > 0 && effects.leech?.to === opponent) container.innerHTML += `<div class="status-icon" title="طفيلي">🦠<span>${effects.leech.duration}</span></div>`;
+        if (opponentEffects.leech?.duration > 0 && opponentEffects.leech?.to === team) container.innerHTML += `<div class="status-icon" title="طفيلي">🦠<span>${opponentEffects.leech.duration}</span></div>`;
         if (effects.inflation > 0) container.innerHTML += `<div class="status-icon" title="تضخم">📈<span>${effects.inflation}</span></div>`;
         if (effects.social_effect > 0) container.innerHTML += `<div class="status-icon" title="تأثير اجتماعي">🎭<span>${effects.social_effect}</span></div>`;
     });
@@ -415,9 +445,13 @@ function calculateQuestionPoints(winningTeam) {
         state[`${taxTeam}Score`] += taxAmount;
         points -= taxAmount;
     }
-    if (state.activeEffects[winningTeam]?.leech?.duration > 0) {
-        const leechTeam = state.activeEffects[winningTeam].leech.to;
-        state[`${leechTeam}Score`] += roundToNearestFive(points / 2);
+
+    // FIX #8: Corrected LEECH logic
+    if (state.activeEffects[opponent]?.leech?.duration > 0) {
+        const leechRecipient = state.activeEffects[opponent].leech.to;
+        if (leechRecipient === winningTeam) {
+            state[`${leechRecipient}Score`] += roundToNearestFive(points / 2);
+        }
     }
 
     return points;
@@ -466,20 +500,6 @@ function attachEventListeners() {
             state.questionHistory.push({team: winningTeam, points: pointsFromQuestion});
             if(state.questionHistory.length > 5) state.questionHistory.shift();
             
-            // Decrement timers AFTER points are calculated for this turn
-            ['girls', 'boys'].forEach(team => {
-                if (state.activeEffects[team]) {
-                    for (const effect in state.activeEffects[team]) {
-                        const effectObj = state.activeEffects[team][effect];
-                        if (typeof effectObj === 'number' && effectObj > 0) {
-                            state.activeEffects[team][effect]--;
-                        } else if (effectObj?.duration > 0) {
-                            state.activeEffects[team][effect].duration--;
-                        }
-                    }
-                }
-            });
-            
             updateAllUI();
             
             if (state.questionNumber % 2 === 0) {
@@ -487,6 +507,23 @@ function attachEventListeners() {
             } else {
                 checkWinner();
             }
+
+            // FIX #1 & #2: Decrement timers AFTER all logic for the current turn is complete.
+            ['girls', 'boys'].forEach(team => {
+                if (state.activeEffects[team]) {
+                    for (const effect in state.activeEffects[team]) {
+                        const effectObj = state.activeEffects[team][effect];
+                        // FIX #10 (Part 2): Exempt reflective shield from automatic decrement.
+                        if (typeof effectObj === 'number' && effectObj > 0 && effect !== 'shield') {
+                            state.activeEffects[team][effect]--;
+                        } else if (effectObj?.duration > 0) {
+                            state.activeEffects[team][effect].duration--;
+                        }
+                    }
+                }
+            });
+            // Save state again after decrementing timers
+            saveState(); 
         });
     });
 
@@ -591,4 +628,49 @@ function attachEventListeners() {
 }
 
 // --- INITIALIZE ---
+// This function needs to be created in your main script file to fetch data and start the game.
+// Example:
+/*
+async function initializeGame() {
+    try {
+        const [questionsRes, cardsRes] = await Promise.all([
+            fetch(QUESTIONS_SHEET_URL),
+            fetch(CARDS_SHEET_URL)
+        ]);
+        if (!questionsRes.ok || !cardsRes.ok) throw new Error('Failed to fetch data from Google Sheets.');
+        
+        const questionsData = await questionsRes.json();
+        const cardsData = await cardsRes.json();
+
+        // Assuming the first row is headers
+        const questionHeaders = questionsData.values[0];
+        const cardHeaders = cardsData.values[0];
+
+        allQuestions = questionsData.values.slice(1).map((row, index) => {
+            let question = { id: `q${index}` };
+            questionHeaders.forEach((header, i) => question[header] = row[i]);
+            return question;
+        });
+
+        allCards = cardsData.values.slice(1).map((row, index) => {
+            let card = { id: `c${index}` };
+            cardHeaders.forEach((header, i) => card[header] = row[i]);
+            return card;
+        });
+
+    } catch (error) {
+        console.error("Initialization Error:", error);
+        document.body.innerHTML = `<p style="color:red; text-align:center; margin-top: 50px;">Failed to load game data. Please check the console for errors and ensure the Google Sheet ID and API Key are correct.</p>`;
+        return;
+    }
+
+    loadState();
+    availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
+    if (allCards.length > 0) {
+       shuffleAndPrepareCards();
+    }
+    updateAllUI();
+    attachEventListeners();
+}
+*/
 initializeGame();
