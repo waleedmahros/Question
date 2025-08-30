@@ -732,5 +732,7 @@ async function initializeGame() {
     updateAllUI();
     attachEventListeners();
     console.log("Game initialized successfully!");
+    elements.nextQuestionBtn.textContent = 'السؤال التالي';
+elements.nextQuestionBtn.disabled = false;
 }
 initializeGame();
