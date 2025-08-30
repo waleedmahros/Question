@@ -68,6 +68,7 @@ const elements = {
 let allQuestions = []; let allCards = [];
 let availableQuestions = [];
 let countdownInterval = null; let interactiveTimerInterval = null;
+let confettiInterval = null;
 let state = {};
 
 function resetState(fullReset = false) {
@@ -100,6 +101,8 @@ function hideAllModals() {
 
 // --- CORE GAME LOGIC ---
 function startNewRound() { 
+    if (confettiInterval) clearInterval(confettiInterval);
+    elements.winnerAvatar.classList.remove('winner-avatar-celebrate');
     playSound('click'); 
     resetState(false); 
     if (allCards.length > 0) {
@@ -168,9 +171,11 @@ function finalizeRound(winnerTeam) {
     const winnerName = winnerTeam === "girls" ? "البنات" : "الشباب";
     elements.winnerNameElement.textContent = winnerName;
     elements.winnerAvatar.src = document.querySelector(`#${winnerTeam}-card .team-avatar`).src;
+    elements.winnerAvatar.classList.add('winner-avatar-celebrate');
     elements.countdownContainer.classList.add('hidden');
     elements.winnerContainer.classList.remove('hidden');
-    launchConfetti();
+    launchConfetti(); // لتشغيلها فوراً
+confettiInterval = setInterval(launchConfetti, 4000); // لتكرارها كل 4 ثوانٍ
 }
 
 function launchConfetti() {
@@ -694,6 +699,147 @@ function attachEventListeners() {
         state.gameActive = true; 
         state.countdownActive = false;
         // Re-enable buttons after stopping countdown
+        elements.settleRoundBtn.disabled = false;
+        elements.resetRoundBtn.disabled = false;
+        saveState();
+    });
+    
+    elements.settleRoundBtn.addEventListener('click', () => {
+        if (state.gameActive) showModal(elements.chooseTeamModal);
+    });
+
+    elements.chooseTeamModal.querySelectorAll('.award-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const team = e.target.dataset.team;
+            hideModal(elements.chooseTeamModal);
+            state.gameActive = false;
+            state.countdownActive = true;
+            triggerWinSequence(true, team);
+        });
+    });
+    
+    elements.addSupporterBtn.addEventListener('click', () => {
+        playSound('click');
+        showModal(elements.supporterModal);
+    });
+
+    elements.supporterForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const supporterName = document.getElementById('supporter-name').value;
+        const supporterPhotoInput = document.getElementById('supporter-photo');
+function attachEventListeners() {
+    elements.nextQuestionBtn.addEventListener('click', () => {
+        playSound('click');
+        if (!state.gameActive) { alert("الجولة متوقفة حالياً!"); return; }
+        if (availableQuestions.length === 0) { alert("انتهت جميع الأسئلة!"); return; }
+        
+        state.questionNumber++;
+        const randIdx = Math.floor(Math.random() * availableQuestions.length);
+        const question = availableQuestions.splice(randIdx, 1)[0];
+        if (!question) return;
+        state.usedQuestionIds.push(question.id);
+        elements.modalQuestionArea.innerHTML = `<p>${question.question_text || ''}</p>`;
+        if (question.image_url) { const img = document.createElement('img'); img.src = question.image_url; elements.modalQuestionArea.appendChild(img); }
+        elements.modalAnswerArea.textContent = question.answer;
+        elements.modalAnswerArea.classList.add('hidden');
+        showModal(elements.questionModal);
+        saveState();
+    });
+
+    elements.awardButtons.forEach(button => {
+        button.addEventListener('click', (event) => {
+            if (!state.gameActive) return;
+            const winningTeam = event.target.dataset.team;
+            playSound('point');
+            hideModal(elements.questionModal);
+            
+            // --- هذا هو الترتيب الصحيح ---
+
+            // 1. حساب النقاط أولاً بناءً على الحالة الحالية
+            const pointsFromQuestion = calculateQuestionPoints(winningTeam);
+            
+            // 2. إضافة النقاط
+            if(pointsFromQuestion > 0) state[`${winningTeam}Score`] += pointsFromQuestion;
+            state.questionHistory.push({team: winningTeam, points: pointsFromQuestion});
+            if(state.questionHistory.length > 5) state.questionHistory.shift();
+            
+            // 3. تحديث الواجهة الرسومية بالنقاط الجديدة
+            updateAllUI();
+            
+            // 4. التعامل مع منطق سلسلة الانتصارات (بعد إضافة نقاط الجولة الحالية)
+            const opponent = winningTeam === 'girls' ? 'boys' : 'girls';
+            if (state.activeEffects[opponent]?.winning_streak > 0) {
+                showSummary(`تم كسر سلسلة انتصارات فريق ${opponent === 'girls' ? 'البنات' : 'الشباب'}!`);
+                state.activeEffects[opponent].winning_streak = 0;
+            }
+            if (state.activeEffects[winningTeam]?.winning_streak > 0) {
+                state.activeEffects[winningTeam].winning_streak++;
+            }
+
+            // 5. التحقق من الفائز أو عرض الكروت
+            if (state.questionNumber % 2 === 0) {
+                displayCardVault(winningTeam);
+            } else {
+                checkWinner();
+            }
+
+            // 6. إنقاص عدادات التأثيرات (آخر خطوة)
+            ['girls', 'boys'].forEach(team => {
+                if (state.activeEffects[team]) {
+                    for (const effect in state.activeEffects[team]) {
+                        const effectObj = state.activeEffects[team][effect];
+                        if (typeof effectObj === 'number' && effectObj > 0 && effect !== 'shield') {
+                            state.activeEffects[team][effect]--;
+                        } else if (effectObj?.duration > 0) {
+                            state.activeEffects[team][effect].duration--;
+                        }
+                    }
+                }
+            });
+            saveState(); 
+        });
+    });
+
+    elements.manualControls.forEach(button => {
+        button.addEventListener('click', e => {
+            playSound('click');
+            const team = e.target.dataset.team;
+            const action = e.target.dataset.action;
+            
+            if (state.activeEffects[team]?.freeze > 0) {
+                showSummary(`فريق ${team === 'girls' ? 'البنات' : 'الشباب'} مُجَمَّد ولا يمكن تغيير نقاطه!`);
+                return;
+            }
+
+            state[`${team}Score`] += (action === 'add' ? MANUAL_POINTS_STEP : -MANUAL_POINTS_STEP);
+            updateScoresUI();
+            saveState();
+
+            if (action === 'add') {
+                checkWinner();
+            }
+        });
+    });
+
+    elements.roundControls.forEach(button => {
+        button.addEventListener('click', e => {
+            playSound('click');
+            const team = e.target.dataset.team;
+            const isAdd = e.target.classList.contains('add-round-btn');
+            if (isAdd) { state[`${team}RoundsWon`]++; playSound('sparkle'); } 
+            else if (state[`${team}RoundsWon`] > 0) { state[`${team}RoundsWon`]--; }
+            updateRoundsUI();
+            saveState();
+        });
+    });
+
+    elements.stopCountdownBtn.addEventListener('click', () => {
+        playSound('click');
+        clearInterval(countdownInterval);
+        stopSound('countdown');
+        hideModal(elements.celebrationOverlay);
+        state.gameActive = true; 
+        state.countdownActive = false;
         elements.settleRoundBtn.disabled = false;
         elements.resetRoundBtn.disabled = false;
         saveState();
