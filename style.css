@@ -655,7 +655,7 @@ footer button:disabled {
     width: 10px;
     height: 20px;
     opacity: 0;
-    animation: confetti-fall 5s linear;
+    animation: confetti-fall 10s linear;
 }
 
 #supporter-form {
@@ -752,48 +752,63 @@ footer button:disabled {
     color: var(--dark-bg);
 }
 
+/* Supporter Announcement - V2 (Luxury Design) */
+@keyframes gold-pulse {
+    0% { box-shadow: 0 0 15px 0px rgba(255, 215, 0, 0.4); }
+    50% { box-shadow: 0 0 30px 10px rgba(255, 215, 0, 0.7); }
+    100% { box-shadow: 0 0 15px 0px rgba(255, 215, 0, 0.4); }
+}
+
 #supporter-announcement {
     position: fixed;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%) scale(0.8);
-    background-color: rgba(0, 0, 0, 0.85);
-    border-radius: 20px;
-    padding: 30px;
-    text-align: center;
-    color: white;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     z-index: 1000;
     width: 90%;
-    max-width: 400px;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.5s ease-out, transform 0.5s ease-out, visibility 0.5s ease-out;
+    max-width: 450px;
+    
+    background: radial-gradient(circle, rgba(68, 58, 26, 0.5) 0%, var(--dark-bg) 70%);
+    border: 2px solid var(--gold-color);
+    border-radius: 20px;
+    padding: 30px;
+    
+    color: white;
+    text-align: center;
+    
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+
+    /* Initial State for Animation */
+    opacity: 0;
+    visibility: hidden;
+    transform: translate(-50%, -150vh) scale(0.7); /* يبدأ من الأعلى ومصغر */
+    
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out, visibility 0.6s;
+    animation: gold-pulse 2.5s infinite;
 }
 
 #supporter-announcement.show {
     opacity: 1;
     visibility: visible;
-    transform: translate(-50%, -50%) scale(1);
+    transform: translate(-50%, -50%) scale(1); /* ينزل للمنتصف ويكبر لحجمه الطبيعي */
 }
 
 #supporter-announcement img {
-    width: 100px;
-    height: 100px;
+    width: 120px;
+    height: 120px;
     border-radius: 50%;
-    border: 4px solid var(--gold-color);
-    margin-bottom: 15px;
+    border: 5px solid var(--gold-color);
+    margin-bottom: 20px;
     object-fit: cover;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
 }
 
 #supporter-announcement #announcement-text {
-    font-size: 1.6em;
-    font-weight: bold;
-    margin-top: 10px;
+    font-size: 1.8em;
+    font-weight: 900;
     line-height: 1.4;
-    color: var(--gold-color);
+    color: white;
+    text-shadow: 0 0 10px var(--gold-color);
 }
