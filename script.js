@@ -68,6 +68,7 @@ const elements = {
 let allQuestions = []; let allCards = [];
 let availableQuestions = [];
 let countdownInterval = null; let interactiveTimerInterval = null;
+let confettiInterval = null;
 let state = {};
 
 function resetState(fullReset = false) {
@@ -100,6 +101,8 @@ function hideAllModals() {
 
 // --- CORE GAME LOGIC ---
 function startNewRound() { 
+    if (confettiInterval) clearInterval(confettiInterval);
+    elements.winnerAvatar.classList.remove('winner-avatar-celebrate');
     playSound('click'); 
     resetState(false); 
     if (allCards.length > 0) {
@@ -166,9 +169,11 @@ function finalizeRound(winnerTeam) {
     const winnerName = winnerTeam === "girls" ? "البنات" : "الشباب";
     elements.winnerNameElement.textContent = winnerName;
     elements.winnerAvatar.src = document.querySelector(`#${winnerTeam}-card .team-avatar`).src;
+    elements.winnerAvatar.classList.add('winner-avatar-celebrate');
     elements.countdownContainer.classList.add('hidden');
     elements.winnerContainer.classList.remove('hidden');
-    launchConfetti();
+   launchConfetti(); // لتشغيلها فوراً
+confettiInterval = setInterval(launchConfetti, 4000); // لتكرارها كل 4 ثوانٍ
 }
 
 function launchConfetti() {
