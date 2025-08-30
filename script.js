@@ -329,7 +329,7 @@ function applyCardEffect(effect, team) {
             return;
         }
         if (isNegative && state.veto[target]) {
-            showInteractiveModal({ ...effect, Manual_Config: 'veto_choice' }, target);
+            showInteractiveModal({ ...effect, Manual_Config: 'veto_choice', originalPlayer: team }, target);
             return;
         }
         if (state.veto[opponent]) {
@@ -338,6 +338,7 @@ function applyCardEffect(effect, team) {
                  const customEffect = {
                      ...effect,
                      Manual_Config: 'veto_choice',
+                     originalPlayer: team,
                      Card_Description: `فريق ${team === 'girls' ? 'البنات' : 'الشباب'} على وشك الفوز بالجولة بهذا الكارت! هل تريدون استخدام الفيتو لإلغاء تأثيره؟`,
                      Card_Title: 'اعتراض استراتيجي'
                  };
@@ -384,7 +385,8 @@ function applyCardEffect(effect, team) {
         case 'GOLDEN_GOOSE': if(!state.activeEffects[team]) state.activeEffects[team]={}; state.activeEffects[team].golden_goose = value; summaryText = `الإوزة الذهبية! +10 نقاط هدية مع كل فوز لمدة ${value} أسئلة.`; break;
         case 'INFLATION': if(!state.activeEffects.girls) state.activeEffects.girls={}; if(!state.activeEffects.boys) state.activeEffects.boys={}; state.activeEffects.girls.inflation = value; state.activeEffects.boys.inflation = value; summaryText = `تضخم! قيمة الأسئلة القادمة مضاعفة للجميع لمدة ${value} أسئلة.`; break;
         case 'WINNING_STREAK': 
-            if (!state.activeEffects[team]?.winning_streak) {
+            if (!state.activeEffects[team]?.winning_streak > 0) {
+                if(!state.activeEffects[team]) state.activeEffects[team]={};
                 state.activeEffects[team].winning_streak = 1;
                 summaryText = `بدأت سلسلة الانتصارات!`;
             } else {
@@ -410,17 +412,16 @@ function updateVisualAids() {
         container.innerHTML = '';
         const effects = state.activeEffects[team] || {};
         const opponent = team === 'girls' ? 'boys' : 'girls';
-        const opponentEffects = state.activeEffects[opponent] || {};
         if (state.veto[team]) container.innerHTML += `<div class="status-icon" title="فيتو">⚖️</div>`;
         if (effects.freeze > 0) container.innerHTML += `<div class="status-icon" title="تجميد">❄️<span>${effects.freeze}</span></div>`;
         if (effects.immunity > 0) container.innerHTML += `<div class="status-icon" title="حصانة">🛡️<span>${effects.immunity}</span></div>`;
         if (effects.double_next_q > 0) container.innerHTML += `<div class="status-icon" title="نقاط مضاعفة">x2</div>`;
         if (effects.shield > 0) container.innerHTML += `<div class="status-icon" title="درع عاكس">🔄</div>`;
-        if (effects.taxes?.duration > 0 && effects.taxes?.by === opponent) container.innerHTML += `<div class="status-icon" title="ضرائب">💰<span>${effects.taxes.duration}</span></div>`;
-        if (opponentEffects.sabotage > 0) container.innerHTML += `<div class="status-icon" title="تخريب">💣<span>${opponentEffects.sabotage}</span></div>`;
+        if (effects.taxes?.duration > 0) container.innerHTML += `<div class="status-icon" title="ضرائب">💰<span>${effects.taxes.duration}</span></div>`;
+        if (effects.sabotage > 0) container.innerHTML += `<div class="status-icon" title="تخريب">💣<span>${effects.sabotage}</span></div>`;
         if (effects.golden_goose > 0) container.innerHTML += `<div class="status-icon" title="إوزة ذهبية">🥚<span>${effects.golden_goose}</span></div>`;
         if (effects.winning_streak > 0) container.innerHTML += `<div class="status-icon" title="سلسلة انتصارات">🔥<span>${effects.winning_streak}</span></div>`;
-        if (opponentEffects.leech?.duration > 0 && opponentEffects.leech?.to === team) container.innerHTML += `<div class="status-icon" title="طفيلي">🦠<span>${opponentEffects.leech.duration}</span></div>`;
+        if (effects.leech?.duration > 0) container.innerHTML += `<div class="status-icon" title="طفيلي">🦠<span>${effects.leech.duration}</span></div>`;
         if (effects.inflation > 0) container.innerHTML += `<div class="status-icon" title="تضخم">📈<span>${effects.inflation}</span></div>`;
         if (effects.social_effect > 0) container.innerHTML += `<div class="status-icon" title="تأثير اجتماعي">🎭<span>${effects.social_effect}</span></div>`;
     });
@@ -468,11 +469,8 @@ function showInteractiveModal(effect, team) {
         btn1.onclick = () => { state.veto[team] = false; hideModal(elements.interactiveModal); showSummary(`تم استخدام الفيتو بنجاح!`, () => { updateAllUI(); saveState(); checkWinner(); }); };
         const btn2 = document.createElement('button'); btn2.textContent = "لا، احتفظ به"; btn2.className = 'interactive-btn-fail';
         btn2.onclick = () => { 
-            const lastCardNumber = state.usedCardNumbers[state.usedCardNumbers.length - 1];
-            const originalEffect = state.shuffledCards[lastCardNumber];
-            const originalWinningTeam = state.questionHistory[state.questionHistory.length - 1].team;
             hideModal(elements.interactiveModal); 
-            applyCardEffect({ ...originalEffect, Veto_Applied: true }, originalWinningTeam);
+            applyCardEffect({ ...effect, Veto_Applied: true }, effect.originalPlayer);
         };
         elements.interactiveButtons.append(btn1, btn2);
     } else if (configType.startsWith('task')) {
@@ -569,18 +567,24 @@ function calculateQuestionPoints(winningTeam) {
     if (state.activeEffects[winningTeam]?.winning_streak > 0) {
         points += 10 * state.activeEffects[winningTeam].winning_streak;
     }
-    if (state.activeEffects[opponent]?.sabotage > 0) points = roundToNearestFive(points / 2);
+    if (state.activeEffects[winningTeam]?.sabotage > 0) { // Corrected Sabotage logic
+        points = roundToNearestFive(points / 2);
+    }
     if (state.activeEffects[winningTeam]?.taxes?.duration > 0) {
         const taxTeam = state.activeEffects[winningTeam].taxes.by;
         const taxAmount = roundToNearestFive(points * 0.25);
         state[`${taxTeam}Score`] += taxAmount;
         points -= taxAmount;
     }
-    if (state.activeEffects[opponent]?.leech?.duration > 0) {
+    if (state.activeEffects[opponent]?.leech?.duration > 0) { // Corrected Leech logic
         const leechRecipient = state.activeEffects[opponent].leech.to;
         if (leechRecipient === winningTeam) {
-            state[`${leechRecipient}Score`] += roundToNearestFive(points / 2);
+             // This logic is flawed. The leech should benefit the opponent of the winner.
         }
+    }
+     if (state.activeEffects[winningTeam]?.leech?.duration > 0) { // Corrected Leech logic
+        const leechRecipient = state.activeEffects[winningTeam].leech.to;
+        state[`${leechRecipient}Score`] += roundToNearestFive(points / 2);
     }
     return points;
 }
@@ -611,11 +615,6 @@ function attachEventListeners() {
             playSound('point');
             hideModal(elements.questionModal);
             
-            console.log(`--- Turn Start for ${winningTeam} ---`);
-            if (state.activeEffects[winningTeam]?.winning_streak > 0) {
-                console.log(`%c[1] BEFORE CALCULATION: Streak value is ${state.activeEffects[winningTeam].winning_streak}`, 'color: yellow;');
-            }
-
             const pointsFromQuestion = calculateQuestionPoints(winningTeam);
             
             if(pointsFromQuestion > 0) state[`${winningTeam}Score`] += pointsFromQuestion;
@@ -629,7 +628,6 @@ function attachEventListeners() {
             }
             if (state.activeEffects[winningTeam]?.winning_streak > 0) {
                 state.activeEffects[winningTeam].winning_streak++;
-                console.log(`%c[2] AFTER INCREMENT: Streak value is now ${state.activeEffects[winningTeam].winning_streak}`, 'color: cyan;');
             }
             
             updateAllUI();
@@ -644,7 +642,7 @@ function attachEventListeners() {
                 if (state.activeEffects[team]) {
                     for (const effect in state.activeEffects[team]) {
                         const effectObj = state.activeEffects[team][effect];
-                        if (typeof effectObj === 'number' && effectObj > 0 && effect !== 'shield') {
+                        if (typeof effectObj === 'number' && effectObj > 0 && effect !== 'shield' && effect !== 'winning_streak') {
                             state.activeEffects[team][effect]--;
                         } else if (effectObj?.duration > 0) {
                             state.activeEffects[team][effect].duration--;
@@ -652,11 +650,6 @@ function attachEventListeners() {
                     }
                 }
             });
-
-            if (state.activeEffects[winningTeam]?.winning_streak > 0) {
-                console.log(`%c[3] BEFORE SAVING: Streak value is ${state.activeEffects[winningTeam].winning_streak}`, 'color: lightgreen;');
-            }
-            console.log(`--- Turn End ---`);
             saveState(); 
         });
     });
