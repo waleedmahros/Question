@@ -605,37 +605,39 @@ function attachEventListeners() {
             playSound('point');
             hideModal(elements.questionModal);
             
-            // --- الترتيب الصحيح والنهائي ---
+            // --- LOGGING START ---
+            console.log(`--- Turn Start for ${winningTeam} ---`);
+            if (state.activeEffects[winningTeam]?.winning_streak > 0) {
+                console.log(`%c[1] BEFORE CALCULATION: Streak value is ${state.activeEffects[winningTeam].winning_streak}`, 'color: yellow;');
+            }
+            // --- LOGGING END ---
 
-            // 1. حساب النقاط بناءً على قيمة السلسلة الحالية
             const pointsFromQuestion = calculateQuestionPoints(winningTeam);
             
-            // 2. إضافة النقاط إلى الرصيد
             if(pointsFromQuestion > 0) state[`${winningTeam}Score`] += pointsFromQuestion;
             state.questionHistory.push({team: winningTeam, points: pointsFromQuestion});
             if(state.questionHistory.length > 5) state.questionHistory.shift();
             
-            // 3. التعامل مع منطق السلسلة (تحديث العداد أو كسره)
             const opponent = winningTeam === 'girls' ? 'boys' : 'girls';
             if (state.activeEffects[opponent]?.winning_streak > 0) {
                 showSummary(`تم كسر سلسلة انتصارات فريق ${opponent === 'girls' ? 'البنات' : 'الشباب'}!`);
                 state.activeEffects[opponent].winning_streak = 0;
             }
             if (state.activeEffects[winningTeam]?.winning_streak > 0) {
-                state.activeEffects[winningTeam].winning_streak++; // زيادة العداد استعداداً للفوز القادم
+                state.activeEffects[winningTeam].winning_streak++;
+                // --- LOGGING START ---
+                console.log(`%c[2] AFTER INCREMENT: Streak value is now ${state.activeEffects[winningTeam].winning_streak}`, 'color: cyan;');
+                // --- LOGGING END ---
             }
             
-            // 4. الآن نقوم بتحديث الواجهة الرسومية لتعكس النقاط الجديدة والعداد المحدث للأيقونة
             updateAllUI();
             
-            // 5. التحقق من الفائز أو عرض الكروت
             if (state.questionNumber % 2 === 0) {
                 displayCardVault(winningTeam);
             } else {
                 checkWinner();
             }
 
-            // 6. إنقاص عدادات باقي التأثيرات
             ['girls', 'boys'].forEach(team => {
                 if (state.activeEffects[team]) {
                     for (const effect in state.activeEffects[team]) {
@@ -649,11 +651,17 @@ function attachEventListeners() {
                 }
             });
 
-            // 7. حفظ الحالة النهائية بعد كل التغييرات
+            // --- LOGGING START ---
+            if (state.activeEffects[winningTeam]?.winning_streak > 0) {
+                console.log(`%c[3] BEFORE SAVING: Streak value is ${state.activeEffects[winningTeam].winning_streak}`, 'color: lightgreen;');
+            }
+            console.log(`--- Turn End ---`);
+            // --- LOGGING END ---
             saveState(); 
         });
     });
 
+    // ... The rest of the function remains exactly the same
     elements.manualControls.forEach(button => {
         button.addEventListener('click', e => {
             playSound('click');
@@ -754,71 +762,6 @@ function attachEventListeners() {
     elements.newDayBtn.addEventListener('click', startNewDay);
     elements.allCloseButtons.forEach(btn => btn.addEventListener('click', () => hideAllModals()));
     elements.toggleAnswerBtn.addEventListener('click', () => elements.modalAnswerArea.classList.toggle('hidden'));
-}
-
-// --- INITIALIZE ---
-async function initializeGame() {
-    try {
-        console.log("Starting to fetch data from Google Sheets...");
-        const [questionsRes, cardsRes] = await Promise.all([
-            fetch(QUESTIONS_SHEET_URL),
-            fetch(CARDS_SHEET_URL)
-        ]);
-        
-        console.log("Fetch responses received.");
-
-        if (!questionsRes.ok || !cardsRes.ok) {
-            throw new Error(`Failed to fetch data. Questions Status: ${questionsRes.status}, Cards Status: ${cardsRes.status}`);
-        }
-        
-        const questionsData = await questionsRes.json();
-        const cardsData = await cardsRes.json();
-        console.log("Data parsed as JSON.");
-
-        if (!questionsData.values || questionsData.values.length < 2 || !cardsData.values || cardsData.values.length < 2) {
-            throw new Error('Google Sheet data is empty or missing headers.');
-        }
-
-        const questionHeaders = questionsData.values[0];
-        const cardHeaders = cardsData.values[0];
-
-        allQuestions = questionsData.values.slice(1).map((row, index) => {
-            let question = { id: `q${index}` };
-            questionHeaders.forEach((header, i) => question[header.trim()] = row[i]);
-            return question;
-        });
-
-        allCards = cardsData.values.slice(1).map((row, index) => {
-            let card = { id: `c${index}` };
-            cardHeaders.forEach((header, i) => card[header.trim()] = row[i]);
-            return card;
-        });
-        
-        console.log(`Successfully loaded ${allQuestions.length} questions and ${allCards.length} cards.`);
-
-    } catch (error) {
-        console.error("Game Initialization Error:", error);
-        document.body.innerHTML = `<div style="padding: 20px; text-align: center; color: red; font-size: 1.2em;">
-            <h1>فشل تحميل بيانات اللعبة</h1>
-            <p>الرجاء التأكد من صحة مفتاح API ومعرف Google Sheet، وأن إعدادات المشاركة هي "Anyone with the link".</p>
-            <p><strong>رسالة الخطأ (للمطور):</strong> ${error.message}</p>
-        </div>`;
-        return; 
-    }
-
-    loadState();
-    availableQuestions = allQuestions.filter(q => !state.usedQuestionIds.includes(q.id));
-    if (allCards.length > 0 && (!state.shuffledCards || Object.keys(state.shuffledCards).length === 0)) {
-       shuffleAndPrepareCards();
-    }
-    updateAllUI();
-    attachEventListeners();
-    console.log("Game initialized successfully!");
-    
-    elements.nextQuestionBtn.textContent = 'السؤال التالي';
-    elements.nextQuestionBtn.disabled = false;
-    elements.settleRoundBtn.disabled = false;
-    elements.resetRoundBtn.disabled = false;
 }
 
 initializeGame();
