@@ -231,7 +231,7 @@ function handleCardClick(cardNumber, winningTeam) {
     showModal(elements.revealCardModal);
 }
 
-function roundToNearestFive(num) { return Math.floor(num / 5) * 5; }
+function roundToNearestFive(num) { return Math.round(num / 5) * 5; }
 
 function getPotentialScores(effect, team, currentState) {
     const opponent = team === 'girls' ? 'boys' : 'girls';
@@ -244,9 +244,9 @@ function getPotentialScores(effect, team, currentState) {
         case 'SUBTRACT_POINTS': potentialScores[target] -= value; break;
         case 'STEAL_POINTS': potentialScores[team] += value; potentialScores[opponent] -= value; break;
         case 'RESET_SCORE': potentialScores[target] = 0; break;
-        case 'HALVE_SCORE': if (potentialScores[target] > 0) potentialScores[target] = roundToNearestFive(Math.floor(potentialScores[target] / 2)); break;
-        case 'LOSE_QUARTER_SCORE': if (potentialScores[target] > 0) potentialScores[target] = roundToNearestFive(potentialScores[target] * 0.75); break;
-        case 'SUBTRACT_HALF_OPPONENT_SCORE': if (potentialScores[opponent] > 0) potentialScores[team] -= roundToNearestFive(Math.floor(potentialScores[opponent] / 2)); break;
+        case 'HALVE_SCORE': if (potentialScores[target] > 0) potentialScores[target] = Math.round(potentialScores[target] / 2); break;
+        case 'LOSE_QUARTER_SCORE': if (potentialScores[target] > 0) potentialScores[target] = Math.round(potentialScores[target] * 0.75); break;
+        case 'SUBTRACT_HALF_OPPONENT_SCORE': if (potentialScores[opponent] > 0) potentialScores[team] -= Math.round(potentialScores[opponent] / 2); break;
         case 'GENEROSITY':
             let pointsToMove = 0;
             const history = currentState.questionHistory;
@@ -257,14 +257,14 @@ function getPotentialScores(effect, team, currentState) {
             break;
         case 'EQUALIZE_SCORES':
             const total = potentialScores.girls + potentialScores.boys;
-            const avg = roundToNearestFive(Math.floor(total / 2));
+            const avg = Math.round(total / 2);
             potentialScores.girls = avg; potentialScores.boys = avg;
             break;
         case 'CHARITY':
             const higherTeam = potentialScores.girls > potentialScores.boys ? 'girls' : 'boys';
             const lowerTeam = higherTeam === 'girls' ? 'boys' : 'girls';
             if (higherTeam !== lowerTeam && potentialScores[higherTeam] > 0) {
-                const charityAmount = roundToNearestFive(Math.floor(potentialScores[higherTeam] / 2));
+                const charityAmount = Math.round(potentialScores[higherTeam] / 2);
                 potentialScores[higherTeam] -= charityAmount;
                 potentialScores[lowerTeam] += charityAmount;
             }
@@ -273,7 +273,7 @@ function getPotentialScores(effect, team, currentState) {
             const higher = potentialScores.girls > potentialScores.boys ? 'girls' : 'boys';
             const lower = higher === 'girls' ? 'boys' : 'girls';
             if (higher !== lower && potentialScores[lower] > 0) {
-                const amount = roundToNearestFive(Math.floor(potentialScores[lower] / 2));
+                const amount = Math.round(potentialScores[lower] / 2);
                 potentialScores[lower] -= amount;
                 potentialScores[higher] += amount;
             }
@@ -293,7 +293,7 @@ function getPotentialScores(effect, team, currentState) {
         case 'CONDITIONAL_ADD_BOYS': potentialScores[team] += team === 'boys' ? 30 : 10; break;
         case 'ROBIN_HOOD':
              if (potentialScores[team] < potentialScores[opponent] && potentialScores[opponent] > 0) {
-                const robinAmount = roundToNearestFive(Math.floor(potentialScores[opponent] * 0.25));
+                const robinAmount = Math.round(potentialScores[opponent] * 0.25);
                 potentialScores[opponent] -= robinAmount;
                 potentialScores[team] += robinAmount;
             }
@@ -306,10 +306,20 @@ function applyCardEffect(effect, team) {
     const opponent = team === 'girls' ? 'boys' : 'girls';
     let target = effect.Target === 'OPPONENT' ? opponent : team;
     let summaryText = "";
-    const isNegative = ['SUBTRACT_POINTS', 'RESET_SCORE', 'STEAL_POINTS', 'LOSE_QUARTER_SCORE', 'REVERSE_CHARITY', 'SUBTRACT_HALF_OPPONENT_SCORE', 'HALVE_IF_OVER_100', 'HALVE_SCORE', 'GENEROSITY'].includes(effect.Effect_Type);
+    const isNegative = ['SUBTRACT_POINTS', 'RESET_SCORE', 'STEAL_POINTS', 'LOSE_QUARTER_SCORE', 'HALVE_IF_OVER_100', 'HALVE_SCORE', 'GENEROSITY'].includes(effect.Effect_Type);
     const effectsThatCanCausePointLoss = ['SUBTRACT_POINTS', 'STEAL_POINTS', 'RESET_SCORE', 'HALVE_SCORE', 'LOSE_QUARTER_SCORE', 'SUBTRACT_HALF_OPPONENT_SCORE', 'GENEROSITY', 'EQUALIZE_SCORES', 'CHARITY', 'REVERSE_CHARITY', 'SWAP_SCORES'];
-    
+    const positivePointEffects = ['ADD_POINTS', 'STEAL_POINTS', 'SET_SCORE', 'CONDITIONAL_ADD_GIRLS', 'CONDITIONAL_ADD_BOYS', 'ROBIN_HOOD', 'REVERSE_CHARITY'];
+
     if (!effect.Veto_Applied) {
+        // Freeze check: Blocks positive point effects
+        if (state.activeEffects[target]?.freeze > 0 && positivePointEffects.includes(effect.Effect_Type)) {
+             showSummary(`فريق ${target === 'girls' ? 'البنات' : 'الشباب'} مُجَمَّد ولا يمكن إضافة نقاط له من الكروت!`, () => {
+                updateAllUI(); saveState(); checkWinner();
+            });
+            return;
+        }
+
+        // Immunity check: Blocks effects that cause a net point loss
         if (state.activeEffects[target]?.immunity > 0 && effectsThatCanCausePointLoss.includes(effect.Effect_Type)) {
             const potentialScores = getPotentialScores(effect, team, state);
             if (potentialScores[target] < state[`${target}Score`]) {
@@ -320,6 +330,7 @@ function applyCardEffect(effect, team) {
                 return;
             }
         }
+        // Reflective Shield check: Blocks direct negative attacks
         if(isNegative && state.activeEffects[target]?.shield > 0) {
             state.activeEffects[target].shield = 0;
             summaryText = `الدرع العاكس صد هجوم "${effect.Card_Title}" وعكسه على الخصم!`;
@@ -328,10 +339,15 @@ function applyCardEffect(effect, team) {
             });
             return;
         }
-        if (isNegative && state.veto[target]) {
-            showInteractiveModal({ ...effect, Manual_Config: 'veto_choice', originalPlayer: team }, target);
-            return;
+        // Veto check 1: Defensive (if card causes net point loss)
+        if (state.veto[target] && effectsThatCanCausePointLoss.includes(effect.Effect_Type)) {
+            const potentialScores = getPotentialScores(effect, team, state);
+            if (potentialScores[target] < state[`${target}Score`]) {
+                showInteractiveModal({ ...effect, Manual_Config: 'veto_choice', originalPlayer: team }, target);
+                return;
+            }
         }
+        // Veto check 2: Strategic (if card makes opponent win)
         if (state.veto[opponent]) {
             const potentialScores = getPotentialScores(effect, team, state);
             if (potentialScores[team] >= WINNING_SCORE && state[`${team}Score`] < WINNING_SCORE) {
@@ -369,7 +385,7 @@ function applyCardEffect(effect, team) {
         case 'HALVE_SCORE': if (state[`${target}Score`] > 0) { const old = state[`${target}Score`]; state[`${target}Score`] = roundToNearestFive(Math.floor(state[`${target}Score`] / 2)); summaryText = `تم خصم نصف نقاط فريق ${target === 'girls' ? 'البنات' : 'الشباب'} من ${old} إلى ${state[`${target}Score`]}.`; } else { summaryText = `نقاط الخصم ليست موجبة، لا يمكن تطبيق الحكم.`; } break;
         case 'LOSE_QUARTER_SCORE': if (state[`${target}Score`] > 0) { const old = state[`${target}Score`]; state[`${target}Score`] = roundToNearestFive(state[`${target}Score`] * 0.75); summaryText = `تم خصم ربع نقاطك من ${old} إلى ${state[`${target}Score`]}.`; } else { summaryText = `نقاطك ليست موجبة، أنت في أمان.`; } break;
         case 'SUBTRACT_HALF_OPPONENT_SCORE': if (state[`${opponent}Score`] > 0) { const amountToSubtract = roundToNearestFive(Math.floor(state[`${opponent}Score`] / 2)); state[`${team}Score`] -= amountToSubtract; summaryText = `يا خسارة! تم خصم ${amountToSubtract} نقطة منك.`; } else { summaryText = `نقاط الخصم ليست موجبة، نجوت!`; } break;
-        case 'CONDITIONAL_ADD_GIRLS': const pointsGirls = team === 'girls' ? 30 : 10; state[`${team}Score`] += pointsGirls; summaryText = `تحيز واضح! تمت إضافة ${pointsGirls} نقطة.`; break;
+        case 'CONDITIONAL_ADD_GIRLS': const pointsGirls = team === 'girls' ? 30 : 10; state[`${team}Score`] += pointsGirls; summaryText = `تحيز واضح! تمت إضافة ${pointsGirls} نقطة.`; } break;
         case 'CONDITIONAL_ADD_BOYS': const pointsBoys = team === 'boys' ? 30 : 10; state[`${team}Score`] += pointsBoys; summaryText = `ده مش تحيز برضه! تمت إضافة ${pointsBoys} نقطة.`; break;
         case 'ROBIN_HOOD': if (state[`${team}Score`] < state[`${opponent}Score`] && state[`${opponent}Score`] > 0) { const robinAmount = roundToNearestFive(Math.floor(state[`${opponent}Score`] * 0.25)); state[`${opponent}Score`] -= robinAmount; state[`${team}Score`] += robinAmount; summaryText = `روبن هود يسرق ${robinAmount} نقطة من الأغنياء للفقراء!`; } else { summaryText = `لا يمكن تطبيق الحكم، أنت لست الأفقر!`; } break;
         case 'IMMUNITY': if(!state.activeEffects[target]) state.activeEffects[target]={}; state.activeEffects[target].immunity = value; summaryText = `تم تفعيل الدرع الواقي لفريق ${target==='girls' ? 'البنات':'الشباب'} لمدة ${value} أسئلة!`; break;
@@ -552,41 +568,6 @@ function showInteractiveModal(effect, team) {
         }, 1000);
     }
     showModal(elements.interactiveModal);
-}
-
-function calculateQuestionPoints(winningTeam) {
-    let points = QUESTION_POINTS;
-    const opponent = winningTeam === 'girls' ? 'boys' : 'girls';
-    if (state.activeEffects[winningTeam]?.freeze > 0) {
-        showSummary(`فريق ${winningTeam === 'girls' ? 'البنات' : 'الشباب'} مُجَمَّد ولم يحصل على نقاط!`);
-        return 0;
-    }
-    if (state.activeEffects.girls?.inflation > 0 || state.activeEffects.boys?.inflation > 0) points *= 2;
-    if (state.activeEffects[winningTeam]?.double_next_q > 0) points *= 2;
-    if (state.activeEffects[winningTeam]?.golden_goose > 0) points += 10;
-    if (state.activeEffects[winningTeam]?.winning_streak > 0) {
-        points += 10 * state.activeEffects[winningTeam].winning_streak;
-    }
-    if (state.activeEffects[winningTeam]?.sabotage > 0) { // Corrected Sabotage logic
-        points = roundToNearestFive(points / 2);
-    }
-    if (state.activeEffects[winningTeam]?.taxes?.duration > 0) {
-        const taxTeam = state.activeEffects[winningTeam].taxes.by;
-        const taxAmount = roundToNearestFive(points * 0.25);
-        state[`${taxTeam}Score`] += taxAmount;
-        points -= taxAmount;
-    }
-    if (state.activeEffects[opponent]?.leech?.duration > 0) { // Corrected Leech logic
-        const leechRecipient = state.activeEffects[opponent].leech.to;
-        if (leechRecipient === winningTeam) {
-             // This logic is flawed. The leech should benefit the opponent of the winner.
-        }
-    }
-     if (state.activeEffects[winningTeam]?.leech?.duration > 0) { // Corrected Leech logic
-        const leechRecipient = state.activeEffects[winningTeam].leech.to;
-        state[`${leechRecipient}Score`] += roundToNearestFive(points / 2);
-    }
-    return points;
 }
 
 function attachEventListeners() {
